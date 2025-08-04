@@ -108,7 +108,7 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
-      MINIO_USE_SSL: false
+      MINIO_USE_SSL: ${MINIO_USE_SSL}
       MINIO_BUCKET_NAME: cach-files-${ENVIRONMENT:-production}
       
       # File Upload Configuration
