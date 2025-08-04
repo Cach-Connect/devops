@@ -163,21 +163,21 @@ services:
         loki-batch-size: "400"
 
 volumes:
-  postgres_data_production:
-  postgres_data_staging:
-  postgres_data_sandbox:
-  minio_data_production:
-  minio_data_staging:
-  minio_data_sandbox:
-  uploads_data_production:
-  uploads_data_staging:
-  uploads_data_sandbox:
-  loki_data_production:
-  loki_data_staging:
-  loki_data_sandbox:
-  grafana_data_production:
-  grafana_data_staging:
-  grafana_data_sandbox:
+  postgres_data_Production:
+  postgres_data_Staging:
+  postgres_data_Sandbox:
+  minio_data_Production:
+  minio_data_Staging:
+  minio_data_Sandbox:
+  uploads_data_Production:
+  uploads_data_Staging:
+  uploads_data_Sandbox:
+  loki_data_Production:
+  loki_data_Staging:
+  loki_data_Sandbox:
+  grafana_data_Production:
+  grafana_data_Staging:
+  grafana_data_Sandbox:
 
 networks:
   cach-network:
