@@ -1,0 +1,184 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: cach-postgres-${ENVIRONMENT:-production}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cach_db_${ENVIRONMENT:-production}
+      POSTGRES_USER: cach_user
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data_${ENVIRONMENT:-production}:/var/lib/postgresql/data
+    networks:
+      - cach-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cach_user -d cach_db_${ENVIRONMENT:-production}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:${LOKI_PORT:-3100}/loki/api/v1/push"
+        loki-batch-size: "400"
+
+  # MinIO Object Storage
+  minio:
+    image: minio/minio:latest
+    container_name: cach-minio-${ENVIRONMENT:-production}
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data_${ENVIRONMENT:-production}:/data
+    networks:
+      - cach-network
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:${LOKI_PORT:-3100}/loki/api/v1/push"
+        loki-batch-size: "400"
+
+  # Loki for log aggregation
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: cach-loki-${ENVIRONMENT:-production}
+    restart: unless-stopped
+    ports:
+      - "${LOKI_PORT:-3100}:3100"
+    volumes:
+      - loki_data_${ENVIRONMENT:-production}:/loki
+      - ./loki-config.yml:/etc/loki/local-config.yaml
+    networks:
+      - cach-network
+    command: -config.file=/etc/loki/local-config.yaml
+
+  # Grafana for monitoring
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: cach-grafana-${ENVIRONMENT:-production}
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin123}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_DOMAIN=${GRAFANA_DOMAIN:-localhost}
+      - GF_SERVER_ROOT_URL=http://${GRAFANA_DOMAIN:-localhost}:${GRAFANA_PORT:-3000}
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - grafana_data_${ENVIRONMENT:-production}:/var/lib/grafana
+      - ./grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - ./grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml
+    networks:
+      - cach-network
+    depends_on:
+      - loki
+
+  # Main API Service
+  api:
+    image: ${IMAGE_NAME:-abc254/api-cach-api}:${IMAGE_TAG:-latest}
+    container_name: cach-api-${ENVIRONMENT:-production}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${ENVIRONMENT:-production}
+      PORT: 3001
+      DATABASE_URL: postgresql://cach_user:${DATABASE_PASSWORD}@postgres:5432/cach_db_${ENVIRONMENT:-production}?schema=public
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      
+      # MinIO Configuration
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_USE_SSL: false
+      MINIO_BUCKET_NAME: cach-files-${ENVIRONMENT:-production}
+      
+      # File Upload Configuration
+      MAX_FILE_SIZE: ${MAX_FILE_SIZE:-10485760}
+      ALLOWED_FILE_TYPES: ${ALLOWED_FILE_TYPES:-pdf,doc,docx,jpg,jpeg,png,gif}
+      
+      # CORS Configuration
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      
+      # SMTP Configuration
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-true}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SMTP_FROM_NAME: "Cach Connect"
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL}
+      SUPPORT_EMAIL: ${SUPPORT_EMAIL}
+      
+      # App URLs
+      ADMIN_APP_URL: ${ADMIN_APP_URL}
+      AGENT_APP_URL: ${AGENT_APP_URL}
+      DISTRIBUTOR_APP_URL: ${DISTRIBUTOR_APP_URL}
+      BUSINESS_APP_URL: ${BUSINESS_APP_URL}
+      LENDER_APP_URL: ${LENDER_APP_URL}
+      
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+    ports:
+      - "${API_PORT:-3001}:3001"
+    networks:
+      - cach-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      loki:
+        condition: service_started
+    volumes:
+      - uploads_data_${ENVIRONMENT:-production}:/app/uploads
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:${LOKI_PORT:-3100}/loki/api/v1/push"
+        loki-batch-size: "400"
+
+volumes:
+  postgres_data_production:
+  postgres_data_staging:
+  postgres_data_sandbox:
+  minio_data_production:
+  minio_data_staging:
+  minio_data_sandbox:
+  uploads_data_production:
+  uploads_data_staging:
+  uploads_data_sandbox:
+  loki_data_production:
+  loki_data_staging:
+  loki_data_sandbox:
+  grafana_data_production:
+  grafana_data_staging:
+  grafana_data_sandbox:
+
+networks:
+  cach-network:
+    driver: bridge
