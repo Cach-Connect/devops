@@ -22,7 +22,7 @@ services:
       timeout: 5s
       retries: 5
     logging:
-      driver: loki
+      driver: local
       options:
         loki-url: "http://localhost:${LOKI_PORT:-3100}/loki/api/v1/push"
         loki-batch-size: "400"
@@ -49,7 +49,7 @@ services:
       timeout: 20s
       retries: 3
     logging:
-      driver: loki
+      driver: local
       options:
         loki-url: "http://localhost:${LOKI_PORT:-3100}/loki/api/v1/push"
         loki-batch-size: "400"
@@ -157,7 +157,7 @@ services:
       timeout: 10s
       retries: 3
     logging:
-      driver: loki
+      driver: local
       options:
         loki-url: "http://localhost:${LOKI_PORT:-3100}/loki/api/v1/push"
         loki-batch-size: "400"
