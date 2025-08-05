@@ -49,7 +49,7 @@ services:
       timeout: 20s
       retries: 3
     logging:
-      driver: logging
+      driver: local
       # options:
       #   loki-url: "http://localhost:${LOKI_PORT:-3100}/loki/api/v1/push"
       #   loki-batch-size: "400"
@@ -95,7 +95,7 @@ services:
     container_name: cach-api-${ENVIRONMENT:-Sandbox}
     restart: unless-stopped
     env_file:
-      - .env.${ENVIRONMENT:-Sandbox}
+      - .env
     ports:
       - "${API_PORT:-3001}:3001"
     networks:
