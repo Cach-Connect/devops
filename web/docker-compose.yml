@@ -2,17 +2,14 @@ version: '3.8'
 
 services:
   # Agent App - Next.js Application
-  agent-app:
-    image: ${IMAGE_NAME:-abc254/cach-agent}:${IMAGE_TAG:-latest}
-    container_name: cach-agent-${ENVIRONMENT:-Sandbox}
+  cach-agents:
+    image: ${IMAGE_NAME:-abc254/cach-agents}:${IMAGE_TAG:-latest}
+    container_name: cach-agents-${ENVIRONMENT:-sandbox}
     restart: unless-stopped
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=${ENVIRONMENT}
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-      - DATABASE_URL=${DATABASE_URL}
     ports:
       - "${AGENT_PORT:-3010}:3000"
     networks:
@@ -24,9 +21,6 @@ services:
       retries: 3
     logging:
       driver: local
-
-volumes:
-  # No volumes needed for Next.js app
 
 networks:
   cach-network:
