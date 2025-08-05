@@ -22,10 +22,10 @@ services:
       timeout: 5s
       retries: 5
     logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:${LOKI_PORT:-3100}/loki/api/v1/push"
-        loki-batch-size: "400"
+      driver: local
+      # options:
+      #   loki-url: "http://localhost:${LOKI_PORT:-3100}/loki/api/v1/push"
+      #   loki-batch-size: "400"
 
   # MinIO Object Storage
   minio:
@@ -49,10 +49,10 @@ services:
       timeout: 20s
       retries: 3
     logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:${LOKI_PORT:-3100}/loki/api/v1/push"
-        loki-batch-size: "400"
+      driver: logging
+      # options:
+      #   loki-url: "http://localhost:${LOKI_PORT:-3100}/loki/api/v1/push"
+      #   loki-batch-size: "400"
 
   # Loki for log aggregation
   loki:
@@ -115,10 +115,10 @@ services:
       timeout: 10s
       retries: 3
     logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:${LOKI_PORT:-3100}/loki/api/v1/push"
-        loki-batch-size: "400"
+      driver: local
+      # options:
+      #   loki-url: "http://localhost:${LOKI_PORT:-3100}/loki/api/v1/push"
+      #   loki-batch-size: "400"
 
 volumes:
   postgres_data_Production:
