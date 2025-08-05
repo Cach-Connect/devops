@@ -54,6 +54,22 @@ services:
       #   loki-url: "http://localhost:${LOKI_PORT:-3100}/loki/api/v1/push"
       #   loki-batch-size: "400"
 
+  # Promtail for log collection
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: cach-promtail-${ENVIRONMENT:-Sandbox}
+    user: "0:0"  # Run as root to ensure access
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./promtail-config.yml:/etc/promtail/config.yml
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - cach-network
+    depends_on:
+      - loki
+    restart: unless-stopped
+
   # Loki for log aggregation
   loki:
     image: grafana/loki:2.9.0
@@ -67,6 +83,22 @@ services:
     networks:
       - cach-network
     command: -config.file=/etc/loki/local-config.yaml
+
+  load-generator:
+    build:
+      context: ./load-generator
+      dockerfile: Dockerfile
+    container_name: load-generator
+    environment:
+      - API_URL=http://api:${API_PORT:-3001}
+      - REQUESTS_PER_MINUTE=30
+      - RUN_FOREVER=true
+      - DURATION_MINUTES=30
+    networks:
+      - cach-network
+    depends_on:
+      - api
+    restart: unless-stopped
 
   # Grafana for monitoring
   grafana:
