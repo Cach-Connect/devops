@@ -124,8 +124,19 @@ check_docker() {
 # Function to setup environment configuration
 setup_environment_config() {
     local target_env="$1"
-    local config_file="$(dirname "$0")/../env/${target_env}.env"
-    local example_file="$(dirname "$0")/../env/config.example"
+    local script_dir="$(dirname "$0")"
+    local config_file
+    local example_file
+    
+    # Check if we're in a deployment directory (has env/ folder locally)
+    if [[ -d "$script_dir/../env" ]]; then
+        config_file="$script_dir/../env/${target_env}.env"
+        example_file="$script_dir/../env/config.example"
+    else
+        # We're in the main devops directory
+        config_file="$script_dir/../env/${target_env}.env"
+        example_file="$script_dir/../env/config.example"
+    fi
     
     # Check if environment-specific config exists
     if [[ ! -f "$config_file" ]]; then
@@ -178,13 +189,23 @@ create_network() {
 # Function to start monitoring stack
 start_monitoring() {
     print_status "Starting consolidated monitoring stack..."
-    cd "$(dirname "$0")/../nginx"
+    local script_dir="$(dirname "$0")"
+    
+    # Determine nginx directory location
+    local nginx_dir
+    if [[ -d "$script_dir/../nginx" ]]; then
+        nginx_dir="$script_dir/../nginx"
+    else
+        nginx_dir="$script_dir/../../nginx"
+    fi
+    
+    cd "$nginx_dir"
     
     # Create necessary directories
     mkdir -p certs www
     
     # Load environment configuration
-    local main_env_file="$(dirname "$0")/../.env"
+    local main_env_file="$script_dir/../.env"
     if [[ -f "$main_env_file" ]]; then
         load_environment "$main_env_file"
     fi
@@ -200,7 +221,17 @@ start_monitoring() {
 # Function to stop monitoring stack
 stop_monitoring() {
     print_status "Stopping consolidated monitoring stack..."
-    cd "$(dirname "$0")/../nginx"
+    local script_dir="$(dirname "$0")"
+    
+    # Determine nginx directory location
+    local nginx_dir
+    if [[ -d "$script_dir/../nginx" ]]; then
+        nginx_dir="$script_dir/../nginx"
+    else
+        nginx_dir="$script_dir/../../nginx"
+    fi
+    
+    cd "$nginx_dir"
     docker-compose -f docker-compose.nginx.yml down
     print_success "Monitoring stack stopped"
 }
@@ -208,7 +239,17 @@ stop_monitoring() {
 # Function to start nginx
 start_nginx() {
     print_status "Starting nginx reverse proxy..."
-    cd "$(dirname "$0")/../nginx"
+    local script_dir="$(dirname "$0")"
+    
+    # Determine nginx directory location
+    local nginx_dir
+    if [[ -d "$script_dir/../nginx" ]]; then
+        nginx_dir="$script_dir/../nginx"
+    else
+        nginx_dir="$script_dir/../../nginx"
+    fi
+    
+    cd "$nginx_dir"
     
     # Create necessary directories
     mkdir -p certs www logs
@@ -223,7 +264,17 @@ start_nginx() {
 # Function to stop nginx
 stop_nginx() {
     print_status "Stopping nginx reverse proxy..."
-    cd "$(dirname "$0")/../nginx"
+    local script_dir="$(dirname "$0")"
+    
+    # Determine nginx directory location
+    local nginx_dir
+    if [[ -d "$script_dir/../nginx" ]]; then
+        nginx_dir="$script_dir/../nginx"
+    else
+        nginx_dir="$script_dir/../../nginx"
+    fi
+    
+    cd "$nginx_dir"
     docker-compose -f docker-compose.nginx.yml stop nginx certbot
     print_success "Nginx reverse proxy stopped"
 }
@@ -282,10 +333,20 @@ deploy_app() {
     # Setup environment configuration
     setup_environment_config "$ENVIRONMENT"
     
-    cd "$(dirname "$0")/.."
+    local script_dir="$(dirname "$0")"
+    local work_dir
+    
+    # Determine working directory - if we have docker-compose.main.yml locally, use current dir
+    if [[ -f "$script_dir/../docker-compose.main.yml" ]]; then
+        work_dir="$script_dir/.."
+    else
+        work_dir="$script_dir/../.."
+    fi
+    
+    cd "$work_dir"
     
     # Load the main environment file
-    local main_env_file="$(dirname "$0")/.env"
+    local main_env_file="$work_dir/.env"
     if [[ -f "$main_env_file" ]]; then
         load_environment "$main_env_file"
     fi
