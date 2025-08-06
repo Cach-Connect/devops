@@ -255,10 +255,28 @@ create_dummy_ssl_certificates() {
         
         if [[ ! -f "$cert_file" || ! -f "$key_file" ]]; then
             print_status "Creating dummy SSL certificate for $domain..."
-            openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-                -keyout "$key_file" \
-                -out "$cert_file" \
-                -subj "/C=US/ST=State/L=City/O=Organization/CN=$domain" 2>/dev/null
+            
+            # Check if openssl is available
+            if command -v openssl >/dev/null 2>&1; then
+                openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+                    -keyout "$key_file" \
+                    -out "$cert_file" \
+                    -subj "/C=US/ST=State/L=City/O=Organization/CN=$domain" 2>/dev/null
+            else
+                # Fallback: use docker to create certificates
+                print_status "OpenSSL not found, using Docker to create certificate..."
+                docker run --rm -v "$(pwd)/certs:/certs" alpine/openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+                    -keyout "/certs/${domain}.key" \
+                    -out "/certs/${domain}.crt" \
+                    -subj "/C=US/ST=State/L=City/O=Organization/CN=$domain" 2>/dev/null
+            fi
+            
+            # Verify certificate was created
+            if [[ -f "$cert_file" && -f "$key_file" ]]; then
+                print_success "Created certificate for $domain"
+            else
+                print_error "Failed to create certificate for $domain"
+            fi
         fi
     done
 }
@@ -291,9 +309,25 @@ start_nginx() {
     print_status "Checking SSL certificates..."
     create_dummy_ssl_certificates
     
+    # Debug: Check if certificates were created
+    print_status "Verifying certificates were created..."
+    ls -la certs/ || echo "No certs directory found"
+    
     # Start nginx first (without certbot to avoid dependency issues)
     print_status "Starting nginx..."
     docker-compose -f docker-compose.nginx.yml up -d nginx
+    
+    # Debug: Check if nginx started
+    sleep 2
+    if docker ps | grep -q "cach-nginx"; then
+        print_success "Nginx container started successfully"
+    else
+        print_error "Nginx container failed to start"
+        print_status "Checking nginx logs..."
+        docker logs cach-nginx 2>&1 || echo "No logs available"
+        print_status "Checking docker-compose logs..."
+        docker-compose -f docker-compose.nginx.yml logs nginx || echo "No compose logs available"
+    fi
     
     # Wait a moment for nginx to start
     sleep 5
