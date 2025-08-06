@@ -1,0 +1,131 @@
+name: Deploy Monitoring Stack
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'nginx/**'
+      - 'scripts/**'
+      - 'env/**'
+      - '.github/workflows/deploy-monitoring.yml'
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force deployment even without changes'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  deploy-monitoring:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout devops repository
+      uses: actions/checkout@v4
+      
+    - name: Setup SSH key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ vars.VPS_HOST }} >> ~/.ssh/known_hosts
+        
+    - name: Deploy monitoring stack to VPS
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ vars.VPS_USER }}@${{ vars.VPS_HOST }} << 'EOF'
+        
+        echo "🔄 Updating devops repository..."
+        cd ~/devops || (git clone https://github.com/${{ github.repository }}.git ~/devops && cd ~/devops)
+        git pull origin main
+        
+        echo "🔑 Creating monitoring environment configuration..."
+        cat > monitoring.env << 'MONITORING_EOF'
+        # Monitoring Stack Configuration
+        ENVIRONMENT=production
+        
+        # Grafana Configuration
+        GRAFANA_PASSWORD="${{ secrets.GRAFANA_PASSWORD }}"
+        GRAFANA_DOMAIN="${{ vars.GRAFANA_DOMAIN }}"
+        
+        # MinIO for Monitoring Data
+        MONITORING_MINIO_ROOT_USER="${{ secrets.MINIO_ROOT_USER }}"
+        MONITORING_MINIO_ROOT_PASSWORD="${{ secrets.MINIO_ROOT_PASSWORD }}"
+        
+        # PostgreSQL for Monitoring Data
+        MONITORING_DB_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
+        
+        # Loki Configuration
+        LOKI_STORAGE_BUCKET="loki-storage"
+        
+        # SSL Configuration
+        ACME_EMAIL="${{ vars.ACME_EMAIL }}"
+        
+        # Domain Configuration
+        API_DOMAIN="${{ vars.API_DOMAIN }}"
+        AGENT_DOMAIN="${{ vars.AGENT_DOMAIN }}"
+        DISTRIBUTOR_DOMAIN="${{ vars.DISTRIBUTOR_DOMAIN }}"
+        BUSINESS_DOMAIN="${{ vars.BUSINESS_DOMAIN }}"
+        ADMIN_DOMAIN="${{ vars.ADMIN_DOMAIN }}"
+        LENDER_DOMAIN="${{ vars.LENDER_DOMAIN }}"
+        STORAGE_DOMAIN="${{ vars.STORAGE_DOMAIN }}"
+        MONITORING_DOMAIN="${{ vars.GRAFANA_DOMAIN }}"
+        MONITORING_EOF
+        
+        echo "🔧 Making scripts executable..."
+        chmod +x scripts/*.sh
+        
+        echo "🛑 Stopping existing monitoring services..."
+        ./scripts/deploy.sh stop-monitoring || echo "No monitoring services to stop"
+        
+        echo "🛑 Stopping existing nginx..."
+        ./scripts/deploy.sh stop-nginx || echo "No nginx to stop"
+        
+        echo "🚀 Starting monitoring stack..."
+        ENV_FILE=monitoring.env ./scripts/deploy.sh start-monitoring
+        
+        echo "🌐 Starting nginx reverse proxy..."
+        ENV_FILE=monitoring.env ./scripts/deploy.sh start-nginx
+        
+        echo "⏳ Waiting for services to be healthy..."
+        sleep 30
+        
+        echo "🔍 Checking service status..."
+        ./scripts/deploy.sh show-status
+        
+        echo "✅ Monitoring stack deployment completed!"
+        echo ""
+        echo "📊 Access your services:"
+        echo "🔍 Grafana: https://${{ vars.GRAFANA_DOMAIN }}"
+        echo "📦 MinIO Console: https://${{ vars.STORAGE_DOMAIN }}"
+        echo "🌐 API: https://${{ vars.API_DOMAIN }}"
+        echo "👥 Agent App: https://${{ vars.AGENT_DOMAIN }}"
+        echo "🏢 Business App: https://${{ vars.BUSINESS_DOMAIN }}"
+        echo "🔗 Distributor App: https://${{ vars.DISTRIBUTOR_DOMAIN }}"
+        echo "⚙️ Admin App: https://${{ vars.ADMIN_DOMAIN }}"
+        echo "🏦 Lender App: https://${{ vars.LENDER_DOMAIN }}"
+        
+        EOF
+
+    - name: Verify deployment
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ vars.VPS_USER }}@${{ vars.VPS_HOST }} << 'EOF'
+        
+        echo "🔍 Final health check..."
+        
+        echo "📋 Docker containers:"
+        docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+        
+        echo ""
+        echo "🌐 Testing Nginx configuration..."
+        docker exec cach-nginx nginx -t || echo "⚠️ Nginx configuration test failed"
+        
+        echo ""
+        echo "📊 Testing Grafana connectivity..."
+        timeout 10 curl -f http://localhost:3000 > /dev/null && echo "✅ Grafana is responding" || echo "⚠️ Grafana not responding"
+        
+        echo ""
+        echo "📁 Testing MinIO connectivity..."
+        timeout 10 curl -f http://localhost:9006/minio/health/live > /dev/null && echo "✅ Monitoring MinIO is responding" || echo "⚠️ Monitoring MinIO not responding"
+        
+        EOF

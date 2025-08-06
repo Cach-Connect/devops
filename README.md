@@ -116,7 +116,21 @@ chmod +x scripts/deploy.sh
 ./scripts/deploy.sh status
 ```
 
-## Deployment Commands
+## 🤖 GitHub Actions Workflows
+
+### Automated Monitoring Deployment
+- **File:** `.github/workflows/deploy-monitoring.yml`
+- **Triggers:** Push to main branch with monitoring changes, or manual dispatch
+- **Deploys:** Nginx, Grafana, Loki, monitoring PostgreSQL & MinIO
+
+### Manual Infrastructure Deployment  
+- **File:** `.github/workflows/deploy-infrastructure.yml`
+- **Triggers:** Manual dispatch only
+- **Options:** Deploy specific components (nginx, monitoring, postgres, minio) to specific environments
+
+For detailed information, see [MONITORING_DEPLOYMENT.md](./MONITORING_DEPLOYMENT.md).
+
+## 🛠️ Manual Deployment Commands
 
 ### Service Management
 ```bash
