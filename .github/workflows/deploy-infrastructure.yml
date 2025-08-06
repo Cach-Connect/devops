@@ -73,8 +73,15 @@ jobs:
         password: ${{ env.SSH_PASSWORD }}
         script: |
           echo "🔄 Updating devops repository..."
-          cd ~/devops || (git clone https://github.com/Cach-Connect/devops.git ~/devops && cd ~/devops)
-          git pull origin main
+          if [ -d ~/devops ]; then
+            echo "📁 Directory exists, updating..."
+            cd ~/devops
+            git pull origin main
+          else
+            echo "📁 Directory doesn't exist, cloning..."
+            git clone https://github.com/Cach-Connect/devops.git ~/devops
+            cd ~/devops
+          fi
           
           echo "🔑 Creating environment configuration..."
           cat > infrastructure.env << 'INFRA_EOF'
@@ -173,6 +180,7 @@ jobs:
         password: ${{ env.SSH_PASSWORD }}
         script: |
           echo "🔍 Final verification..."
+          cd ~/devops
           
           echo "📋 Running containers:"
           docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | head -20

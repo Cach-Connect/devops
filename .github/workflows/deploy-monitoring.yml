@@ -67,8 +67,15 @@ jobs:
         password: ${{ env.SSH_PASSWORD }}
         script: |
           echo "🔄 Updating devops repository..."
-          cd ~/devops || (git clone https://github.com/Cach-Connect/devops.git ~/devops && cd ~/devops)
-          git pull origin main
+          if [ -d ~/devops ]; then
+            echo "📁 Directory exists, updating..."
+            cd ~/devops
+            git pull origin main
+          else
+            echo "📁 Directory doesn't exist, cloning..."
+            git clone https://github.com/Cach-Connect/devops.git ~/devops
+            cd ~/devops
+          fi
           
           echo "🔑 Creating monitoring environment configuration..."
           cat > monitoring.env << 'MONITORING_EOF'
@@ -148,6 +155,7 @@ jobs:
         password: ${{ env.SSH_PASSWORD }}
         script: |
           echo "🔍 Final health check..."
+          cd ~/devops
           
           echo "📋 Docker containers:"
           docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
