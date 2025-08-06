@@ -181,8 +181,14 @@ load_environment() {
 create_network() {
     if ! docker network ls | grep -q "cach-network"; then
         print_status "Creating cach-network..."
-        docker network create cach-network
-        print_success "Network created"
+        if docker network create cach-network; then
+            print_success "Network cach-network created successfully"
+        else
+            print_error "Failed to create cach-network"
+            exit 1
+        fi
+    else
+        print_status "Network cach-network already exists"
     fi
 }
 
@@ -209,6 +215,9 @@ start_monitoring() {
     if [[ -f "$main_env_file" ]]; then
         load_environment "$main_env_file"
     fi
+    
+    # Ensure network exists
+    create_network
     
     # Start monitoring services
     docker-compose -f docker-compose.nginx.yml up -d postgres_monitoring minio_monitoring loki promtail grafana
@@ -304,6 +313,9 @@ start_nginx() {
     if [[ -f "$main_env_file" ]]; then
         load_environment "$main_env_file"
     fi
+    
+    # Ensure network exists
+    create_network
     
     # Create dummy SSL certificates if they don't exist
     print_status "Checking SSL certificates..."

@@ -134,7 +134,7 @@ jobs:
           sleep 30
           
           echo "🔍 Checking service status..."
-          ./scripts/deploy.sh show-status
+          ./scripts/deploy.sh status
           
           echo "✅ Monitoring stack deployment completed!"
           echo ""
