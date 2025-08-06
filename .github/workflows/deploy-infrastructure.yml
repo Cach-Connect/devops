@@ -14,6 +14,15 @@ on:
           - monitoring
           - postgres
           - minio
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'sandbox'
+        type: choice
+        options:
+          - production
+          - staging
+          - sandbox
 
 jobs:
   deploy-infrastructure:
