@@ -37,7 +37,7 @@ jobs:
             echo "🔑 Creating monitoring environment configuration..."
             cat > monitoring.env << 'MONITORING_EOF'
             # Monitoring Stack Configuration
-            ENVIRONMENT=production
+            ENVIRONMENT=${{ github.event.inputs.environment }}
             
             # Grafana Configuration
             GRAFANA_PASSWORD="${{ secrets.GRAFANA_PASSWORD }}"
