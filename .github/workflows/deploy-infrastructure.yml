@@ -32,12 +32,44 @@ jobs:
     - name: Checkout devops repository
       uses: actions/checkout@v4
       
+    - name: Debug SSH Configuration
+      run: |
+        echo "🔍 Debugging SSH configuration..."
+        echo "VPS_HOST length: ${#VPS_HOST}"
+        echo "VPS_USER length: ${#VPS_USER}"
+        echo "VPS_PASSWORD length: ${#VPS_PASSWORD}"
+        echo "VPS_HOST (masked): ${VPS_HOST:0:3}***${VPS_HOST: -3}"
+        echo "VPS_USER (masked): ${VPS_USER:0:2}***"
+        if [ -z "$VPS_HOST" ]; then
+          echo "❌ VPS_HOST is empty or not set"
+        else
+          echo "✅ VPS_HOST is set"
+        fi
+        if [ -z "$VPS_USER" ]; then
+          echo "❌ VPS_USER is empty or not set"
+        else
+          echo "✅ VPS_USER is set"
+        fi
+        if [ -z "$VPS_PASSWORD" ]; then
+          echo "❌ VPS_PASSWORD is empty or not set"
+        else
+          echo "✅ VPS_PASSWORD is set"
+        fi
+      env:
+        VPS_HOST: ${{ secrets.VPS_HOST }}
+        VPS_USER: ${{ secrets.VPS_USER }}
+        VPS_PASSWORD: ${{ secrets.VPS_SSH_PASSWORD }}
+      
     - name: Deploy infrastructure component
       uses: appleboy/ssh-action@v1.0.3
+      env:
+        SSH_HOST: ${{ secrets.VPS_HOST }}
+        SSH_USER: ${{ secrets.VPS_USER }}
+        SSH_PASSWORD: ${{ secrets.VPS_SSH_PASSWORD }}
       with:
-        host: ${{ secrets.VPS_HOST }}
-        username: ${{ secrets.VPS_USER }}
-        password: ${{ secrets.VPS_SSH_PASSWORD }}
+        host: ${{ env.SSH_HOST }}
+        username: ${{ env.SSH_USER }}
+        password: ${{ env.SSH_PASSWORD }}
         script: |
           echo "🔄 Updating devops repository..."
           cd ~/devops || (git clone https://github.com/Cach-Connect/devops.git ~/devops && cd ~/devops)
@@ -57,12 +89,12 @@ jobs:
           MINIO_ROOT_PASSWORD="${{ secrets.MINIO_ROOT_PASSWORD }}"
           MINIO_SECRET_KEY="${{ secrets.MINIO_ROOT_PASSWORD }}"
           MINIO_ACCESS_KEY="${{ secrets.MINIO_ROOT_USER }}"
-          MINIO_BUCKET_NAME="${{ vars.MINIO_BUCKET_NAME }}"
-          MINIO_USE_SSL="${{ vars.MINIO_USE_SSL }}"
+          MINIO_BUCKET_NAME="${{ secrets.MINIO_BUCKET_NAME }}"
+          MINIO_USE_SSL="${{ secrets.MINIO_USE_SSL }}"
           
           # Grafana Configuration
           GRAFANA_PASSWORD="${{ secrets.GRAFANA_PASSWORD }}"
-          GRAFANA_DOMAIN="${{ vars.GRAFANA_DOMAIN }}"
+          GRAFANA_DOMAIN="${{ secrets.GRAFANA_DOMAIN }}"
           
           # Monitoring Database
           MONITORING_DB_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
@@ -130,10 +162,14 @@ jobs:
 
     - name: Verify deployment
       uses: appleboy/ssh-action@v1.0.3
+      env:
+        SSH_HOST: ${{ secrets.VPS_HOST }}
+        SSH_USER: ${{ secrets.VPS_USER }}
+        SSH_PASSWORD: ${{ secrets.VPS_SSH_PASSWORD }}
       with:
-        host: ${{ secrets.VPS_HOST }}
-        username: ${{ secrets.VPS_USER }}
-        password: ${{ secrets.VPS_SSH_PASSWORD }}
+        host: ${{ env.SSH_HOST }}
+        username: ${{ env.SSH_USER }}
+        password: ${{ env.SSH_PASSWORD }}
         script: |
           echo "🔍 Final verification..."
           
