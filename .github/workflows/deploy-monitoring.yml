@@ -101,24 +101,25 @@ jobs:
             echo "🏦 Lender App: ${{ vars.LENDER_DOMAIN }}"
 
       - name: Verify deployment
-        run: |
-          sshpass -p "${{ secrets.VPS_SSH_PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
-          
-          echo "🔍 Final health check..."
-          
-          echo "📋 Docker containers:"
-          docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-          
-          echo ""
-          echo "🌐 Testing Nginx configuration..."
-          docker exec cach-nginx nginx -t || echo "⚠️ Nginx configuration test failed"
-          
-          echo ""
-          echo "📊 Testing Grafana connectivity..."
-          timeout 10 curl -f http://localhost:3000 > /dev/null && echo "✅ Grafana is responding" || echo "⚠️ Grafana not responding"
-          
-          echo ""
-          echo "📁 Testing MinIO connectivity..."
-          timeout 10 curl -f http://localhost:9006/minio/health/live > /dev/null && echo "✅ Monitoring MinIO is responding" || echo "⚠️ Monitoring MinIO not responding"
-          
-          EOF
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_SSH_PASSWORD }}
+          script: |
+            echo "🔍 Final health check..."
+            
+            echo "📋 Docker containers:"
+            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+            
+            echo ""
+            echo "🌐 Testing Nginx configuration..."
+            docker exec cach-nginx nginx -t || echo "⚠️ Nginx configuration test failed"
+            
+            echo ""
+            echo "📊 Testing Grafana connectivity..."
+            timeout 10 curl -f http://localhost:3000 > /dev/null && echo "✅ Grafana is responding" || echo "⚠️ Grafana not responding"
+            
+            echo ""
+            echo "📁 Testing MinIO connectivity..."
+            timeout 10 curl -f http://localhost:9006/minio/health/live > /dev/null && echo "✅ Monitoring MinIO is responding" || echo "⚠️ Monitoring MinIO not responding"

@@ -29,6 +29,13 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+      - name: Debug SSH Configuration
+        run: |
+          echo "🔍 Debugging SSH configuration..."
+          echo "Host provided: ${{ secrets.VPS_HOST != '' && 'Yes' || 'No' }}"
+          echo "User provided: ${{ secrets.VPS_USER != '' && 'Yes' || 'No' }}"
+          echo "Password provided: ${{ secrets.VPS_SSH_PASSWORD != '' && 'Yes' || 'No' }}"
+      
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -126,25 +133,30 @@ jobs:
             echo "✅ Infrastructure deployment completed!"
 
       - name: Verify deployment
-        run: |
-          sshpass -p "${{ secrets.VPS_SSH_PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
-          
-          echo "🔍 Final verification..."
-          
-          echo "📋 Running containers:"
-          docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | head -20
-          
-          if [[ "${{ github.event.inputs.component }}" == "nginx" || "${{ github.event.inputs.component }}" == "all" ]]; then
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_SSH_PASSWORD }}
+          script: |
+            echo "🔍 Final verification..."
+            
+            echo "📋 Running containers:"
+            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | head -20
+            
             echo ""
-            echo "🌐 Nginx status:"
-            docker exec cach-nginx nginx -t && echo "✅ Nginx configuration valid" || echo "❌ Nginx configuration invalid"
-          fi
-          
-          if [[ "${{ github.event.inputs.component }}" == "monitoring" || "${{ github.event.inputs.component }}" == "all" ]]; then
-            echo ""
-            echo "📊 Monitoring services:"
-            timeout 10 curl -f http://localhost:3000 > /dev/null && echo "✅ Grafana responding" || echo "⚠️ Grafana not responding"
-            timeout 10 curl -f http://localhost:3100/ready > /dev/null && echo "✅ Loki responding" || echo "⚠️ Loki not responding"
-          fi
-          
-          EOF
+            echo "🌐 Testing Nginx configuration..."
+            docker exec cach-nginx nginx -t || echo "⚠️ Nginx configuration test failed"
+            
+            if [[ "${{ github.event.inputs.component }}" == "nginx" || "${{ github.event.inputs.component }}" == "all" ]]; then
+              echo ""
+              echo "🌐 Nginx status:"
+              docker exec cach-nginx nginx -t && echo "✅ Nginx configuration valid" || echo "❌ Nginx configuration invalid"
+            fi
+            
+            if [[ "${{ github.event.inputs.component }}" == "monitoring" || "${{ github.event.inputs.component }}" == "all" ]]; then
+              echo ""
+              echo "📊 Monitoring services:"
+              timeout 10 curl -f http://localhost:3000 > /dev/null && echo "✅ Grafana responding" || echo "⚠️ Grafana not responding"
+              timeout 10 curl -f http://localhost:3100/ready > /dev/null && echo "✅ Loki responding" || echo "⚠️ Loki not responding"
+            fi
