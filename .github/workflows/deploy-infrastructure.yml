@@ -37,7 +37,7 @@ jobs:
           password: ${{ secrets.VPS_SSH_PASSWORD }}
           script: |
             echo "🔄 Updating devops repository..."
-            cd ~/devops || (git clone https://github.com/${{ github.repository }}.git ~/devops && cd ~/devops)
+            cd ~/devops || (git clone https://github.com/Cach-Connect/devops.git ~/devops && cd ~/devops)
             git pull origin main
             
             echo "🔑 Creating environment configuration..."
@@ -124,8 +124,6 @@ jobs:
             ./scripts/deploy.sh show-status
             
             echo "✅ Infrastructure deployment completed!"
-            
-            EOF
 
       - name: Verify deployment
         run: |

@@ -31,7 +31,7 @@ jobs:
           password: ${{ secrets.VPS_SSH_PASSWORD }}
           script: |
             echo "🔄 Updating devops repository..."
-            cd ~/devops || (git clone https://github.com/${{ github.repository }}.git ~/devops && cd ~/devops)
+            cd ~/devops || (git clone https://github.com/Cach-Connect/devops.git ~/devops && cd ~/devops)
             git pull origin main
             
             echo "🔑 Creating monitoring environment configuration..."
@@ -91,16 +91,14 @@ jobs:
             echo "✅ Monitoring stack deployment completed!"
             echo ""
             echo "📊 Access your services:"
-            echo "🔍 Grafana: https://${{ vars.GRAFANA_DOMAIN }}"
-            echo "📦 MinIO Console: https://${{ vars.STORAGE_DOMAIN }}"
-            echo "🌐 API: https://${{ vars.API_DOMAIN }}"
-            echo "👥 Agent App: https://${{ vars.AGENT_DOMAIN }}"
-            echo "🏢 Business App: https://${{ vars.BUSINESS_DOMAIN }}"
-            echo "🔗 Distributor App: https://${{ vars.DISTRIBUTOR_DOMAIN }}"
-            echo "⚙️ Admin App: https://${{ vars.ADMIN_DOMAIN }}"
-            echo "🏦 Lender App: https://${{ vars.LENDER_DOMAIN }}"
-            
-            EOF
+            echo "🔍 Grafana: ${{ vars.GRAFANA_DOMAIN }}"
+            echo "📦 MinIO Console: ${{ vars.STORAGE_DOMAIN }}"
+            echo "🌐 API: ${{ vars.API_DOMAIN }}"
+            echo "👥 Agent App: ${{ vars.AGENT_DOMAIN }}"
+            echo "🏢 Business App: ${{ vars.BUSINESS_DOMAIN }}"
+            echo "🔗 Distributor App: ${{ vars.DISTRIBUTOR_DOMAIN }}"
+            echo "⚙️ Admin App: ${{ vars.ADMIN_DOMAIN }}"
+            echo "🏦 Lender App: ${{ vars.LENDER_DOMAIN }}"
 
       - name: Verify deployment
         run: |
