@@ -1,0 +1,146 @@
+version: '3.8'
+
+services:
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: cach-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+      - nginx_logs:/var/log/nginx
+    networks:
+      - cach-network
+    depends_on:
+      - certbot
+    logging:
+      driver: local
+
+  # Certbot for SSL certificates
+  certbot:
+    image: certbot/certbot
+    container_name: cach-certbot
+    volumes:
+      - ./certs:/etc/letsencrypt
+      - ./www:/var/www/certbot
+    networks:
+      - cach-network
+    command: certonly --webroot --webroot-path=/var/www/certbot --email your-email@domain.com --agree-tos --no-eff-email --force-renewal -d api.cachconnect.co.ke -d api.staging.cachconnect.co.ke -d api.sandbox.cachconnect.co.ke -d agents.cachconnect.co.ke -d agents.staging.cachconnect.co.ke -d agents.sandbox.cachconnect.co.ke -d distributors.cachconnect.co.ke -d distributors.staging.cachconnect.co.ke -d distributors.sandbox.cachconnect.co.ke -d business.cachconnect.co.ke -d business.staging.cachconnect.co.ke -d business.sandbox.cachconnect.co.ke -d admin.cachconnect.co.ke -d admin.staging.cachconnect.co.ke -d admin.sandbox.cachconnect.co.ke -d lenders.cachconnect.co.ke -d lenders.staging.cachconnect.co.ke -d lenders.sandbox.cachconnect.co.ke -d monitoring.cachconnect.co.ke -d storage.cachconnect.co.ke
+
+  # Consolidated Monitoring Stack
+  # PostgreSQL Database (shared for monitoring)
+  postgres_monitoring:
+    image: postgres:15-alpine
+    container_name: cach-postgres-monitoring
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: monitoring_db
+      POSTGRES_USER: monitoring_user
+      POSTGRES_PASSWORD: ${MONITORING_DB_PASSWORD}
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_monitoring_data:/var/lib/postgresql/data
+    networks:
+      - cach-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U monitoring_user -d monitoring_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO for monitoring data storage (shared)
+  minio_monitoring:
+    image: minio/minio:latest
+    container_name: cach-minio-monitoring
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_monitoring_data:/data
+    networks:
+      - cach-network
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Loki for log aggregation (consolidated)
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: cach-loki-consolidated
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki_consolidated_data:/loki
+      - ./loki-config.yml:/etc/loki/local-config.yaml
+    networks:
+      - cach-network
+    command: -config.file=/etc/loki/local-config.yaml
+
+  # Promtail for log collection (consolidated)
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: cach-promtail-consolidated
+    user: "0:0"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./promtail-config.yml:/etc/promtail/config.yml
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - nginx_logs:/var/log/nginx:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - cach-network
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+  # Grafana for monitoring (consolidated)
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: cach-grafana-consolidated
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin123}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_DOMAIN=monitoring.cachconnect.co.ke
+      - GF_SERVER_ROOT_URL=https://monitoring.cachconnect.co.ke
+      - GF_DATABASE_TYPE=postgres
+      - GF_DATABASE_HOST=postgres_monitoring:5432
+      - GF_DATABASE_NAME=monitoring_db
+      - GF_DATABASE_USER=monitoring_user
+      - GF_DATABASE_PASSWORD=${MONITORING_DB_PASSWORD}
+    ports:
+      - "3100:3000"
+    volumes:
+      - grafana_consolidated_data:/var/lib/grafana
+      - ./grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - ./grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml
+    networks:
+      - cach-network
+    depends_on:
+      - loki
+      - postgres_monitoring
+
+volumes:
+  postgres_monitoring_data:
+  minio_monitoring_data:
+  loki_consolidated_data:
+  grafana_consolidated_data:
+  nginx_logs:
+
+networks:
+  cach-network:
+    driver: bridge
+    external: true
