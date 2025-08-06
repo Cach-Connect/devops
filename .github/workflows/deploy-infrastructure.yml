@@ -29,128 +29,124 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout devops repository
-      uses: actions/checkout@v4
-      
-    - name: Setup SSH with password
-      run: |
-        sudo apt-get update && sudo apt-get install -y sshpass
-        
-    - name: Deploy infrastructure component
-      run: |
-        sshpass -p "${{ secrets.VPS_SSH_PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
-        
-        echo "🔄 Updating devops repository..."
-        cd ~/devops || (git clone https://github.com/${{ github.repository }}.git ~/devops && cd ~/devops)
-        git pull origin main
-        
-        echo "🔑 Creating environment configuration..."
-        cat > infrastructure.env << 'INFRA_EOF'
-        # Infrastructure Configuration
-        ENVIRONMENT=${{ github.event.inputs.environment }}
-        
-        # Database Configuration
-        DATABASE_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
-        POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
-        
-        # MinIO Configuration
-        MINIO_ROOT_USER="${{ secrets.MINIO_ROOT_USER }}"
-        MINIO_ROOT_PASSWORD="${{ secrets.MINIO_ROOT_PASSWORD }}"
-        MINIO_SECRET_KEY="${{ secrets.MINIO_ROOT_PASSWORD }}"
-        MINIO_ACCESS_KEY="${{ secrets.MINIO_ROOT_USER }}"
-        MINIO_BUCKET_NAME="${{ vars.MINIO_BUCKET_NAME }}"
-        MINIO_USE_SSL="${{ vars.MINIO_USE_SSL }}"
-        
-        # Grafana Configuration
-        GRAFANA_PASSWORD="${{ secrets.GRAFANA_PASSWORD }}"
-        GRAFANA_DOMAIN="${{ vars.GRAFANA_DOMAIN }}"
-        
-        # Monitoring Database
-        MONITORING_DB_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
-        
-        # Domain Configuration
-        API_DOMAIN="${{ vars.API_DOMAIN }}"
-        AGENT_DOMAIN="${{ vars.AGENT_DOMAIN }}"
-        DISTRIBUTOR_DOMAIN="${{ vars.DISTRIBUTOR_DOMAIN }}"
-        BUSINESS_DOMAIN="${{ vars.BUSINESS_DOMAIN }}"
-        ADMIN_DOMAIN="${{ vars.ADMIN_DOMAIN }}"
-        LENDER_DOMAIN="${{ vars.LENDER_DOMAIN }}"
-        STORAGE_DOMAIN="${{ vars.STORAGE_DOMAIN }}"
-        MONITORING_DOMAIN="${{ vars.GRAFANA_DOMAIN }}"
-        
-        # SSL Configuration
-        ACME_EMAIL="${{ vars.ACME_EMAIL }}"
-        INFRA_EOF
-        
-        echo "🔧 Making scripts executable..."
-        chmod +x scripts/*.sh
-        
-        echo "🚀 Deploying component: ${{ github.event.inputs.component }}"
-        
-        case "${{ github.event.inputs.component }}" in
-          "nginx")
-            echo "🌐 Deploying Nginx..."
-            ENV_FILE=infrastructure.env ./scripts/deploy.sh start-nginx
-            ;;
-          "monitoring")
-            echo "📊 Deploying monitoring stack..."
-            ENV_FILE=infrastructure.env ./scripts/deploy.sh start-monitoring
-            ;;
-          "postgres")
-            echo "🐘 Deploying PostgreSQL for ${{ github.event.inputs.environment }}..."
-            ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e ${{ github.event.inputs.environment }} -s postgres
-            ;;
-          "minio")
-            echo "📁 Deploying MinIO for ${{ github.event.inputs.environment }}..."
-            ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e ${{ github.event.inputs.environment }} -s minio
-            ;;
-          "all")
-            echo "🏗️ Deploying all infrastructure components..."
-            echo "📊 Starting monitoring stack..."
-            ENV_FILE=infrastructure.env ./scripts/deploy.sh start-monitoring
-            echo "🌐 Starting Nginx..."
-            ENV_FILE=infrastructure.env ./scripts/deploy.sh start-nginx
-            echo "🐘 Starting PostgreSQL instances..."
-            ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e production -s postgres
-            ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e staging -s postgres
-            ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e sandbox -s postgres
-            echo "📁 Starting MinIO instances..."
-            ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e production -s minio
-            ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e staging -s minio
-            ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e sandbox -s minio
-            ;;
-        esac
-        
-        echo "⏳ Waiting for services to stabilize..."
-        sleep 30
-        
-        echo "🔍 Checking deployment status..."
-        ./scripts/deploy.sh show-status
-        
-        echo "✅ Infrastructure deployment completed!"
-        
-        EOF
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_SSH_PASSWORD }}
+          script: |
+            echo "🔄 Updating devops repository..."
+            cd ~/devops || (git clone https://github.com/${{ github.repository }}.git ~/devops && cd ~/devops)
+            git pull origin main
+            
+            echo "🔑 Creating environment configuration..."
+            cat > infrastructure.env << 'INFRA_EOF'
+            # Infrastructure Configuration
+            ENVIRONMENT=${{ github.event.inputs.environment }}
+            
+            # Database Configuration
+            DATABASE_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
+            POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
+            
+            # MinIO Configuration
+            MINIO_ROOT_USER="${{ secrets.MINIO_ROOT_USER }}"
+            MINIO_ROOT_PASSWORD="${{ secrets.MINIO_ROOT_PASSWORD }}"
+            MINIO_SECRET_KEY="${{ secrets.MINIO_ROOT_PASSWORD }}"
+            MINIO_ACCESS_KEY="${{ secrets.MINIO_ROOT_USER }}"
+            MINIO_BUCKET_NAME="${{ vars.MINIO_BUCKET_NAME }}"
+            MINIO_USE_SSL="${{ vars.MINIO_USE_SSL }}"
+            
+            # Grafana Configuration
+            GRAFANA_PASSWORD="${{ secrets.GRAFANA_PASSWORD }}"
+            GRAFANA_DOMAIN="${{ vars.GRAFANA_DOMAIN }}"
+            
+            # Monitoring Database
+            MONITORING_DB_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
+            
+            # Domain Configuration
+            API_DOMAIN="${{ vars.API_DOMAIN }}"
+            AGENT_DOMAIN="${{ vars.AGENT_DOMAIN }}"
+            DISTRIBUTOR_DOMAIN="${{ vars.DISTRIBUTOR_DOMAIN }}"
+            BUSINESS_DOMAIN="${{ vars.BUSINESS_DOMAIN }}"
+            ADMIN_DOMAIN="${{ vars.ADMIN_DOMAIN }}"
+            LENDER_DOMAIN="${{ vars.LENDER_DOMAIN }}"
+            STORAGE_DOMAIN="${{ vars.STORAGE_DOMAIN }}"
+            MONITORING_DOMAIN="${{ vars.GRAFANA_DOMAIN }}"
+            
+            # SSL Configuration
+            ACME_EMAIL="${{ vars.ACME_EMAIL }}"
+            INFRA_EOF
+            
+            echo "🔧 Making scripts executable..."
+            chmod +x scripts/*.sh
+            
+            echo "🚀 Deploying component: ${{ github.event.inputs.component }}"
+            
+            case "${{ github.event.inputs.component }}" in
+              "nginx")
+                echo "🌐 Deploying Nginx..."
+                ENV_FILE=infrastructure.env ./scripts/deploy.sh start-nginx
+                ;;
+              "monitoring")
+                echo "📊 Deploying monitoring stack..."
+                ENV_FILE=infrastructure.env ./scripts/deploy.sh start-monitoring
+                ;;
+              "postgres")
+                echo "🐘 Deploying PostgreSQL for ${{ github.event.inputs.environment }}..."
+                ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e ${{ github.event.inputs.environment }} -s postgres
+                ;;
+              "minio")
+                echo "📁 Deploying MinIO for ${{ github.event.inputs.environment }}..."
+                ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e ${{ github.event.inputs.environment }} -s minio
+                ;;
+              "all")
+                echo "🏗️ Deploying all infrastructure components..."
+                echo "📊 Starting monitoring stack..."
+                ENV_FILE=infrastructure.env ./scripts/deploy.sh start-monitoring
+                echo "🌐 Starting Nginx..."
+                ENV_FILE=infrastructure.env ./scripts/deploy.sh start-nginx
+                echo "🐘 Starting PostgreSQL instances..."
+                ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e production -s postgres
+                ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e staging -s postgres
+                ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e sandbox -s postgres
+                echo "📁 Starting MinIO instances..."
+                ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e production -s minio
+                ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e staging -s minio
+                ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e sandbox -s minio
+                ;;
+            esac
+            
+            echo "⏳ Waiting for services to stabilize..."
+            sleep 30
+            
+            echo "🔍 Checking deployment status..."
+            ./scripts/deploy.sh show-status
+            
+            echo "✅ Infrastructure deployment completed!"
+            
+            EOF
 
-    - name: Verify deployment
-      run: |
-        sshpass -p "${{ secrets.VPS_SSH_PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
-        
-        echo "🔍 Final verification..."
-        
-        echo "📋 Running containers:"
-        docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | head -20
-        
-        if [[ "${{ github.event.inputs.component }}" == "nginx" || "${{ github.event.inputs.component }}" == "all" ]]; then
-          echo ""
-          echo "🌐 Nginx status:"
-          docker exec cach-nginx nginx -t && echo "✅ Nginx configuration valid" || echo "❌ Nginx configuration invalid"
-        fi
-        
-        if [[ "${{ github.event.inputs.component }}" == "monitoring" || "${{ github.event.inputs.component }}" == "all" ]]; then
-          echo ""
-          echo "📊 Monitoring services:"
-          timeout 10 curl -f http://localhost:3000 > /dev/null && echo "✅ Grafana responding" || echo "⚠️ Grafana not responding"
-          timeout 10 curl -f http://localhost:3100/ready > /dev/null && echo "✅ Loki responding" || echo "⚠️ Loki not responding"
-        fi
-        
-        EOF
+      - name: Verify deployment
+        run: |
+          sshpass -p "${{ secrets.VPS_SSH_PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
+          
+          echo "🔍 Final verification..."
+          
+          echo "📋 Running containers:"
+          docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | head -20
+          
+          if [[ "${{ github.event.inputs.component }}" == "nginx" || "${{ github.event.inputs.component }}" == "all" ]]; then
+            echo ""
+            echo "🌐 Nginx status:"
+            docker exec cach-nginx nginx -t && echo "✅ Nginx configuration valid" || echo "❌ Nginx configuration invalid"
+          fi
+          
+          if [[ "${{ github.event.inputs.component }}" == "monitoring" || "${{ github.event.inputs.component }}" == "all" ]]; then
+            echo ""
+            echo "📊 Monitoring services:"
+            timeout 10 curl -f http://localhost:3000 > /dev/null && echo "✅ Grafana responding" || echo "⚠️ Grafana not responding"
+            timeout 10 curl -f http://localhost:3100/ready > /dev/null && echo "✅ Loki responding" || echo "⚠️ Loki not responding"
+          fi
+          
+          EOF
