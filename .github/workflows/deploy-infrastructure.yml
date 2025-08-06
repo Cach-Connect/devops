@@ -124,6 +124,9 @@ jobs:
           echo "🔧 Making scripts executable..."
           chmod +x scripts/*.sh
           
+          echo "🔗 Creating main environment file link..."
+          ln -sf infrastructure.env .env
+          
           echo "🚀 Deploying component: ${{ github.event.inputs.component }}"
           
           case "${{ github.event.inputs.component }}" in
@@ -164,7 +167,7 @@ jobs:
           sleep 30
           
           echo "🔍 Checking deployment status..."
-          ./scripts/deploy.sh show-status
+          ./scripts/deploy.sh status
           
           echo "✅ Infrastructure deployment completed!"
 
