@@ -27,6 +27,7 @@ on:
 jobs:
   deploy-infrastructure:
     runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'production' }}
     
     steps:
     - name: Checkout devops repository
