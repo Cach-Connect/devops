@@ -390,13 +390,22 @@ deploy_app() {
     docker stop "$CONTAINER_NAME" 2>/dev/null || true
     docker rm "$CONTAINER_NAME" 2>/dev/null || true
     
-    # Start the service
-    print_status "Starting updated service..."
+    # Start dependencies and the service
+    print_status "Starting updated service and dependencies..."
     if [[ "$SERVICE" == "postgres" || "$SERVICE" == "minio" ]]; then
         # For infrastructure services, use the service name as defined in docker-compose
         docker-compose -f docker-compose.main.yml --env-file "$main_env_file" up -d "${SERVICE}-${ENVIRONMENT}"
     else
-        # For application services
+        # For application services, start dependencies first, then the service
+        case $SERVICE in
+            api)
+                print_status "Starting API dependencies (postgres and minio)..."
+                docker-compose -f docker-compose.main.yml --env-file "$main_env_file" up -d "postgres-${ENVIRONMENT}" "minio-${ENVIRONMENT}"
+                sleep 10  # Wait for dependencies to be ready
+                ;;
+        esac
+        
+        # Start the main service
         docker-compose -f docker-compose.main.yml --env-file "$main_env_file" up -d "${SERVICE}-${ENVIRONMENT}"
     fi
     
