@@ -133,6 +133,8 @@ jobs:
             "nginx")
               echo "🌐 Deploying Nginx..."
               ENV_FILE=infrastructure.env ./scripts/deploy.sh start-nginx
+              echo "🔍 Checking nginx deployment result..."
+              docker ps | grep nginx || echo "⚠️ No nginx containers found after deployment"
               ;;
             "monitoring")
               echo "📊 Deploying monitoring stack..."
@@ -152,6 +154,8 @@ jobs:
               ENV_FILE=infrastructure.env ./scripts/deploy.sh start-monitoring
               echo "🌐 Starting Nginx..."
               ENV_FILE=infrastructure.env ./scripts/deploy.sh start-nginx
+              echo "🔍 Checking nginx after start-all..."
+              docker ps | grep nginx || echo "⚠️ No nginx containers found after start-all"
               echo "🐘 Starting PostgreSQL instances..."
               ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e production -s postgres
               ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e staging -s postgres
@@ -191,7 +195,15 @@ jobs:
           if [[ "${{ github.event.inputs.component }}" == "nginx" || "${{ github.event.inputs.component }}" == "all" ]]; then
             echo ""
             echo "🌐 Nginx status:"
-            docker exec cach-nginx nginx -t && echo "✅ Nginx configuration valid" || echo "❌ Nginx configuration invalid"
+            if docker ps | grep -q "cach-nginx"; then
+              docker exec cach-nginx nginx -t && echo "✅ Nginx configuration valid" || echo "❌ Nginx configuration invalid"
+            else
+              echo "❌ Nginx container (cach-nginx) is not running"
+              echo "🔍 Checking if container exists but stopped:"
+              docker ps -a | grep cach-nginx || echo "   No cach-nginx container found"
+              echo "🔍 Checking nginx logs:"
+              docker logs cach-nginx 2>/dev/null | tail -10 || echo "   No logs available for cach-nginx"
+            fi
           fi
           
           if [[ "${{ github.event.inputs.component }}" == "monitoring" || "${{ github.event.inputs.component }}" == "all" ]]; then

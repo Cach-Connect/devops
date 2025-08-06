@@ -127,6 +127,8 @@ jobs:
           
           echo "🌐 Starting nginx reverse proxy..."
           ENV_FILE=monitoring.env ./scripts/deploy.sh start-nginx
+          echo "🔍 Checking nginx deployment result..."
+          docker ps | grep nginx || echo "⚠️ No nginx containers found after deployment"
           
           echo "⏳ Waiting for services to be healthy..."
           sleep 30
@@ -165,7 +167,15 @@ jobs:
           
           echo ""
           echo "🌐 Testing Nginx configuration..."
-          docker exec cach-nginx nginx -t || echo "⚠️ Nginx configuration test failed"
+          if docker ps | grep -q "cach-nginx"; then
+            docker exec cach-nginx nginx -t && echo "✅ Nginx configuration valid" || echo "❌ Nginx configuration invalid"
+          else
+            echo "❌ Nginx container (cach-nginx) is not running"
+            echo "🔍 Checking if container exists but stopped:"
+            docker ps -a | grep cach-nginx || echo "   No cach-nginx container found"
+            echo "🔍 Checking nginx logs:"
+            docker logs cach-nginx 2>/dev/null | tail -10 || echo "   No logs available for cach-nginx"
+          fi
           
           echo ""
           echo "📊 Testing Grafana connectivity..."
