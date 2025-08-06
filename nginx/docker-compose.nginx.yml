@@ -14,9 +14,7 @@ services:
       - ./certs:/etc/nginx/certs:ro
       - nginx_logs:/var/log/nginx
     networks:
-      - cach-infra-network
-    depends_on:
-      - certbot
+      - cach-network
     logging:
       driver: local
 
@@ -28,8 +26,8 @@ services:
       - ./certs:/etc/letsencrypt
       - ./www:/var/www/certbot
     networks:
-      - cach-infra-network
-    command: certonly --webroot --webroot-path=/var/www/certbot --email your-email@domain.com --agree-tos --no-eff-email --force-renewal -d api.cachconnect.co.ke -d api.staging.cachconnect.co.ke -d api.sandbox.cachconnect.co.ke -d agents.cachconnect.co.ke -d agents.staging.cachconnect.co.ke -d agents.sandbox.cachconnect.co.ke -d distributors.cachconnect.co.ke -d distributors.staging.cachconnect.co.ke -d distributors.sandbox.cachconnect.co.ke -d business.cachconnect.co.ke -d business.staging.cachconnect.co.ke -d business.sandbox.cachconnect.co.ke -d admin.cachconnect.co.ke -d admin.staging.cachconnect.co.ke -d admin.sandbox.cachconnect.co.ke -d lenders.cachconnect.co.ke -d lenders.staging.cachconnect.co.ke -d lenders.sandbox.cachconnect.co.ke -d monitoring.cachconnect.co.ke -d storage.cachconnect.co.ke
+      - cach-network
+    command: certonly --webroot --webroot-path=/var/www/certbot --email ${ACME_EMAIL} --agree-tos --no-eff-email --force-renewal -d ${API_DOMAIN} -d ${AGENT_DOMAIN} -d ${DISTRIBUTOR_DOMAIN} -d ${BUSINESS_DOMAIN} -d ${ADMIN_DOMAIN} -d ${LENDER_DOMAIN} -d ${STORAGE_DOMAIN} -d ${MONITORING_DOMAIN}
 
   # Consolidated Monitoring Stack
   # PostgreSQL Database (shared for monitoring)
@@ -46,7 +44,7 @@ services:
     volumes:
       - postgres_monitoring_data:/var/lib/postgresql/data
     networks:
-      - cach-infra-network
+      - cach-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U monitoring_user -d monitoring_db"]
       interval: 10s
@@ -67,7 +65,7 @@ services:
     volumes:
       - minio_monitoring_data:/data
     networks:
-      - cach-infra-network
+      - cach-network
     command: server /data --console-address ":9001"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
@@ -86,7 +84,7 @@ services:
       - loki_consolidated_data:/loki
       - ./loki-config.yml:/etc/loki/local-config.yaml
     networks:
-      - cach-infra-network
+      - cach-network
     command: -config.file=/etc/loki/local-config.yaml
 
   # Promtail for log collection (consolidated)
@@ -101,7 +99,7 @@ services:
       - nginx_logs:/var/log/nginx:ro
     command: -config.file=/etc/promtail/config.yml
     networks:
-      - cach-infra-network
+      - cach-network
     depends_on:
       - loki
     restart: unless-stopped
@@ -128,7 +126,7 @@ services:
       - ./grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
       - ./grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml
     networks:
-      - cach-infra-network
+      - cach-network
     depends_on:
       - loki
       - postgres_monitoring
@@ -141,6 +139,5 @@ volumes:
   nginx_logs:
 
 networks:
-  cach-infra-network:
-    driver: bridge
-    external: false
+  cach-network:
+    external: true

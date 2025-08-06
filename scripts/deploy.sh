@@ -236,6 +236,33 @@ stop_monitoring() {
     print_success "Monitoring stack stopped"
 }
 
+# Function to create dummy SSL certificates
+create_dummy_ssl_certificates() {
+    local domains=(
+        "${API_DOMAIN:-api.cachconnect.co.ke}"
+        "${AGENT_DOMAIN:-agents.cachconnect.co.ke}"
+        "${DISTRIBUTOR_DOMAIN:-distributors.cachconnect.co.ke}"
+        "${BUSINESS_DOMAIN:-business.cachconnect.co.ke}"
+        "${ADMIN_DOMAIN:-admin.cachconnect.co.ke}"
+        "${LENDER_DOMAIN:-lenders.cachconnect.co.ke}"
+        "${STORAGE_DOMAIN:-storage.cachconnect.co.ke}"
+        "${MONITORING_DOMAIN:-monitoring.cachconnect.co.ke}"
+    )
+    
+    for domain in "${domains[@]}"; do
+        local cert_file="certs/${domain}.crt"
+        local key_file="certs/${domain}.key"
+        
+        if [[ ! -f "$cert_file" || ! -f "$key_file" ]]; then
+            print_status "Creating dummy SSL certificate for $domain..."
+            openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+                -keyout "$key_file" \
+                -out "$cert_file" \
+                -subj "/C=US/ST=State/L=City/O=Organization/CN=$domain" 2>/dev/null
+        fi
+    done
+}
+
 # Function to start nginx
 start_nginx() {
     print_status "Starting nginx reverse proxy..."
@@ -254,8 +281,26 @@ start_nginx() {
     # Create necessary directories
     mkdir -p certs www logs
     
-    # Start nginx and certbot
-    docker-compose -f docker-compose.nginx.yml up -d nginx certbot
+    # Load environment configuration
+    local main_env_file="$script_dir/../.env"
+    if [[ -f "$main_env_file" ]]; then
+        load_environment "$main_env_file"
+    fi
+    
+    # Create dummy SSL certificates if they don't exist
+    print_status "Checking SSL certificates..."
+    create_dummy_ssl_certificates
+    
+    # Start nginx first (without certbot to avoid dependency issues)
+    print_status "Starting nginx..."
+    docker-compose -f docker-compose.nginx.yml up -d nginx
+    
+    # Wait a moment for nginx to start
+    sleep 5
+    
+    # Now start certbot to get real certificates
+    print_status "Starting certbot for SSL certificates..."
+    docker-compose -f docker-compose.nginx.yml up -d certbot
     
     print_success "Nginx reverse proxy started"
     print_status "HTTP: Port 80, HTTPS: Port 443"
