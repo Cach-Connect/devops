@@ -107,8 +107,8 @@ validate_environment() {
 
 # Function to validate service
 validate_service() {
-    if [[ -n "$SERVICE" && "$SERVICE" != "api" && "$SERVICE" != "agents" && "$SERVICE" != "distributors" && "$SERVICE" != "business" && "$SERVICE" != "admin" && "$SERVICE" != "lenders" && "$SERVICE" != "nginx" && "$SERVICE" != "monitoring" ]]; then
-        print_error "Invalid service: $SERVICE. Must be api, agents, distributors, business, admin, lenders, nginx, or monitoring."
+    if [[ -n "$SERVICE" && "$SERVICE" != "api" && "$SERVICE" != "agents" && "$SERVICE" != "distributors" && "$SERVICE" != "business" && "$SERVICE" != "admin" && "$SERVICE" != "lenders" && "$SERVICE" != "nginx" && "$SERVICE" != "monitoring" && "$SERVICE" != "postgres" && "$SERVICE" != "minio" ]]; then
+        print_error "Invalid service: $SERVICE. Must be api, agents, distributors, business, admin, lenders, postgres, minio, nginx, or monitoring."
         exit 1
     fi
 }
@@ -290,7 +290,7 @@ deploy_app() {
         load_environment "$main_env_file"
     fi
     
-    # Pull latest image
+    # Handle different service types
     case $SERVICE in
         api)
             IMAGE_VAR="API_${ENVIRONMENT^^}_TAG"
@@ -316,6 +316,12 @@ deploy_app() {
             IMAGE_VAR="LENDER_${ENVIRONMENT^^}_TAG"
             CONTAINER_NAME="cach-lenders-$ENVIRONMENT"
             ;;
+        postgres)
+            CONTAINER_NAME="cach-postgres-$ENVIRONMENT"
+            ;;
+        minio)
+            CONTAINER_NAME="cach-minio-$ENVIRONMENT"
+            ;;
     esac
     
     # Stop and remove existing container
@@ -325,7 +331,13 @@ deploy_app() {
     
     # Start the service
     print_status "Starting updated service..."
-    docker-compose -f docker-compose.main.yml --env-file "$main_env_file" up -d "${SERVICE}-${ENVIRONMENT}"
+    if [[ "$SERVICE" == "postgres" || "$SERVICE" == "minio" ]]; then
+        # For infrastructure services, use the service name as defined in docker-compose
+        docker-compose -f docker-compose.main.yml --env-file "$main_env_file" up -d "${SERVICE}-${ENVIRONMENT}"
+    else
+        # For application services
+        docker-compose -f docker-compose.main.yml --env-file "$main_env_file" up -d "${SERVICE}-${ENVIRONMENT}"
+    fi
     
     # Wait for health check
     print_status "Waiting for service to be healthy..."
@@ -360,6 +372,23 @@ show_status() {
     fi
     
     echo ""
+    echo "Infrastructure Services:"
+    
+    # Check PostgreSQL and MinIO for each environment
+    for service in postgres minio; do
+        echo "  $service:"
+        for env in production staging sandbox; do
+            container_name="cach-${service}-${env}"
+            
+            if docker ps | grep -q "$container_name"; then
+                echo -e "    ${GREEN}✓${NC} $env: Running"
+            else
+                echo -e "    ${RED}✗${NC} $env: Stopped"
+            fi
+        done
+        echo ""
+    done
+    
     echo "Application Services:"
     
     # Check each service and environment

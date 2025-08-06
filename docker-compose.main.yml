@@ -4,6 +4,170 @@ version: '3.8'
 # This file coordinates the deployment of all environments and monitoring
 
 services:
+  # PostgreSQL Database - Production
+  postgres-production:
+    image: postgres:15-alpine
+    container_name: cach-postgres-production
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cach_db_production
+      POSTGRES_USER: cach_user
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_production_data:/var/lib/postgresql/data
+    networks:
+      - cach-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cach_user -d cach_db_production"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "environment=production,service=postgres"
+
+  # PostgreSQL Database - Staging
+  postgres-staging:
+    image: postgres:15-alpine
+    container_name: cach-postgres-staging
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cach_db_staging
+      POSTGRES_USER: cach_user
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_staging_data:/var/lib/postgresql/data
+    networks:
+      - cach-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cach_user -d cach_db_staging"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "environment=staging,service=postgres"
+
+  # PostgreSQL Database - Sandbox
+  postgres-sandbox:
+    image: postgres:15-alpine
+    container_name: cach-postgres-sandbox
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cach_db_sandbox
+      POSTGRES_USER: cach_user
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_sandbox_data:/var/lib/postgresql/data
+    networks:
+      - cach-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cach_user -d cach_db_sandbox"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "environment=sandbox,service=postgres"
+
+  # MinIO Object Storage - Production
+  minio-production:
+    image: minio/minio:latest
+    container_name: cach-minio-production
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_production_data:/data
+    networks:
+      - cach-network
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "environment=production,service=minio"
+
+  # MinIO Object Storage - Staging
+  minio-staging:
+    image: minio/minio:latest
+    container_name: cach-minio-staging
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "9002:9000"
+      - "9003:9001"
+    volumes:
+      - minio_staging_data:/data
+    networks:
+      - cach-network
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "environment=staging,service=minio"
+
+  # MinIO Object Storage - Sandbox
+  minio-sandbox:
+    image: minio/minio:latest
+    container_name: cach-minio-sandbox
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "9004:9000"
+      - "9005:9001"
+    volumes:
+      - minio_sandbox_data:/data
+    networks:
+      - cach-network
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "environment=sandbox,service=minio"
   # Production API
   api-production:
     image: ${API_IMAGE_NAME:-abc254/api-cach-api}:${API_PRODUCTION_TAG:-main}
@@ -17,6 +181,11 @@ services:
       - cach-network
     volumes:
       - uploads_production:/app/uploads
+    depends_on:
+      postgres-production:
+        condition: service_healthy
+      minio-production:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
       interval: 30s
@@ -42,6 +211,11 @@ services:
       - cach-network
     volumes:
       - uploads_staging:/app/uploads
+    depends_on:
+      postgres-staging:
+        condition: service_healthy
+      minio-staging:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
       interval: 30s
@@ -67,6 +241,11 @@ services:
       - cach-network
     volumes:
       - uploads_sandbox:/app/uploads
+    depends_on:
+      postgres-sandbox:
+        condition: service_healthy
+      minio-sandbox:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
       interval: 30s
@@ -455,6 +634,17 @@ services:
         labels: "environment=sandbox,app=lenders"
 
 volumes:
+  # PostgreSQL Data
+  postgres_production_data:
+  postgres_staging_data:
+  postgres_sandbox_data:
+  
+  # MinIO Data
+  minio_production_data:
+  minio_staging_data:
+  minio_sandbox_data:
+  
+  # Upload Data
   uploads_production:
   uploads_staging:
   uploads_sandbox:
