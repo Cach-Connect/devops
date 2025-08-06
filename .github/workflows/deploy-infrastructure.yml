@@ -1,21 +1,19 @@
-name: Deploy Infrastructure Components
+name: Deploy Infrastructure
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docker-compose*.yml'
+      - 'nginx/**'
+      - 'grafana/**'
+      - 'loki/**'
+      - 'promtail/**'
   workflow_dispatch:
     inputs:
-      component:
-        description: 'Component to deploy'
-        required: true
-        default: 'all'
-        type: choice
-        options:
-          - all
-          - nginx
-          - monitoring
-          - postgres
-          - minio
       environment:
-        description: 'Environment to deploy to'
+        description: 'Environment to deploy infrastructure to'
         required: true
         default: 'production'
         type: choice
@@ -23,6 +21,19 @@ on:
           - production
           - staging
           - sandbox
+          - all
+      service:
+        description: 'Specific service to deploy (optional)'
+        required: false
+        type: choice
+        options:
+          - all
+          - nginx
+          - grafana
+          - loki
+          - promtail
+          - postgres
+          - minio
 
 jobs:
   deploy-infrastructure:
@@ -30,185 +41,181 @@ jobs:
     environment: ${{ github.event.inputs.environment || 'production' }}
     
     steps:
-    - name: Checkout devops repository
-      uses: actions/checkout@v4
-      
-    - name: Debug SSH Configuration
-      run: |
-        echo "🔍 Debugging SSH configuration..."
-        echo "VPS_HOST length: ${#VPS_HOST}"
-        echo "VPS_USER length: ${#VPS_USER}"
-        echo "VPS_PASSWORD length: ${#VPS_PASSWORD}"
-        echo "VPS_HOST (masked): ${VPS_HOST:0:3}***${VPS_HOST: -3}"
-        echo "VPS_USER (masked): ${VPS_USER:0:2}***"
-        if [ -z "$VPS_HOST" ]; then
-          echo "❌ VPS_HOST is empty or not set"
-        else
-          echo "✅ VPS_HOST is set"
-        fi
-        if [ -z "$VPS_USER" ]; then
-          echo "❌ VPS_USER is empty or not set"
-        else
-          echo "✅ VPS_USER is set"
-        fi
-        if [ -z "$VPS_PASSWORD" ]; then
-          echo "❌ VPS_PASSWORD is empty or not set"
-        else
-          echo "✅ VPS_PASSWORD is set"
-        fi
-      env:
-        VPS_HOST: ${{ secrets.VPS_HOST }}
-        VPS_USER: ${{ secrets.VPS_USER }}
-        VPS_PASSWORD: ${{ secrets.VPS_SSH_PASSWORD }}
-      
-    - name: Deploy infrastructure component
-      uses: appleboy/ssh-action@v1.0.3
-      env:
-        SSH_HOST: ${{ secrets.VPS_HOST }}
-        SSH_USER: ${{ secrets.VPS_USER }}
-        SSH_PASSWORD: ${{ secrets.VPS_SSH_PASSWORD }}
-      with:
-        host: ${{ env.SSH_HOST }}
-        username: ${{ env.SSH_USER }}
-        password: ${{ env.SSH_PASSWORD }}
-        script: |
-          echo "🔄 Updating devops repository..."
-          if [ -d ~/devops ]; then
-            echo "📁 Directory exists, updating..."
-            cd ~/devops
-            git pull origin main
-          else
-            echo "📁 Directory doesn't exist, cloning..."
-            git clone https://github.com/Cach-Connect/devops.git ~/devops
-            cd ~/devops
-          fi
-          
-          echo "🔑 Creating environment configuration..."
-          cat > infrastructure.env << 'INFRA_EOF'
-          # Infrastructure Configuration
-          ENVIRONMENT=${{ github.event.inputs.environment }}
-          
-          # Database Configuration
-          DATABASE_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
-          POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
-          
-          # MinIO Configuration
-          MINIO_ROOT_USER="${{ secrets.MINIO_ROOT_USER }}"
-          MINIO_ROOT_PASSWORD="${{ secrets.MINIO_ROOT_PASSWORD }}"
-          MINIO_SECRET_KEY="${{ secrets.MINIO_ROOT_PASSWORD }}"
-          MINIO_ACCESS_KEY="${{ secrets.MINIO_ROOT_USER }}"
-          MINIO_BUCKET_NAME="${{ secrets.MINIO_BUCKET_NAME }}"
-          MINIO_USE_SSL="${{ secrets.MINIO_USE_SSL }}"
-          
-          # Grafana Configuration
-          GRAFANA_PASSWORD="${{ secrets.GRAFANA_PASSWORD }}"
-          GRAFANA_DOMAIN="${{ secrets.GRAFANA_DOMAIN }}"
-          
-          # Monitoring Database
-          MONITORING_DB_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
-          
-          # Domain Configuration
-          API_DOMAIN="${{ vars.API_DOMAIN }}"
-          AGENT_DOMAIN="${{ vars.AGENT_DOMAIN }}"
-          DISTRIBUTOR_DOMAIN="${{ vars.DISTRIBUTOR_DOMAIN }}"
-          BUSINESS_DOMAIN="${{ vars.BUSINESS_DOMAIN }}"
-          ADMIN_DOMAIN="${{ vars.ADMIN_DOMAIN }}"
-          LENDER_DOMAIN="${{ vars.LENDER_DOMAIN }}"
-          STORAGE_DOMAIN="${{ vars.STORAGE_DOMAIN }}"
-          MONITORING_DOMAIN="${{ vars.GRAFANA_DOMAIN }}"
-          
-          # SSL Configuration
-          ACME_EMAIL="${{ vars.ACME_EMAIL }}"
-          INFRA_EOF
-          
-          echo "🔧 Making scripts executable..."
-          chmod +x scripts/*.sh
-          
-          echo "🔗 Creating main environment file link..."
-          ln -sf infrastructure.env .env
-          
-          echo "🚀 Deploying component: ${{ github.event.inputs.component }}"
-          
-          case "${{ github.event.inputs.component }}" in
-            "nginx")
-              echo "🌐 Deploying Nginx..."
-              ENV_FILE=infrastructure.env ./scripts/deploy.sh start-nginx
-              echo "🔍 Checking nginx deployment result..."
-              docker ps | grep nginx || echo "⚠️ No nginx containers found after deployment"
-              ;;
-            "monitoring")
-              echo "📊 Deploying monitoring stack..."
-              ENV_FILE=infrastructure.env ./scripts/deploy.sh start-monitoring
-              ;;
-            "postgres")
-              echo "🐘 Deploying PostgreSQL for ${{ github.event.inputs.environment }}..."
-              ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e ${{ github.event.inputs.environment }} -s postgres
-              ;;
-            "minio")
-              echo "📁 Deploying MinIO for ${{ github.event.inputs.environment }}..."
-              ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e ${{ github.event.inputs.environment }} -s minio
-              ;;
-            "all")
-              echo "🏗️ Deploying all infrastructure components..."
-              echo "📊 Starting monitoring stack..."
-              ENV_FILE=infrastructure.env ./scripts/deploy.sh start-monitoring
-              echo "🌐 Starting Nginx..."
-              ENV_FILE=infrastructure.env ./scripts/deploy.sh start-nginx
-              echo "🔍 Checking nginx after start-all..."
-              docker ps | grep nginx || echo "⚠️ No nginx containers found after start-all"
-              echo "🐘 Starting PostgreSQL instances..."
-              ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e production -s postgres
-              ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e staging -s postgres
-              ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e sandbox -s postgres
-              echo "📁 Starting MinIO instances..."
-              ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e production -s minio
-              ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e staging -s minio
-              ENV_FILE=infrastructure.env ./scripts/deploy.sh deploy-app -e sandbox -s minio
-              ;;
-          esac
-          
-          echo "⏳ Waiting for services to stabilize..."
-          sleep 30
-          
-          echo "🔍 Checking deployment status..."
-          ./scripts/deploy.sh status
-          
-          echo "✅ Infrastructure deployment completed!"
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Verify deployment
-      uses: appleboy/ssh-action@v1.0.3
-      env:
-        SSH_HOST: ${{ secrets.VPS_HOST }}
-        SSH_USER: ${{ secrets.VPS_USER }}
-        SSH_PASSWORD: ${{ secrets.VPS_SSH_PASSWORD }}
-      with:
-        host: ${{ env.SSH_HOST }}
-        username: ${{ env.SSH_USER }}
-        password: ${{ env.SSH_PASSWORD }}
-        script: |
-          echo "🔍 Final verification..."
-          cd ~/devops
+      - name: Validate deployment parameters
+        id: validate
+        run: |
+          ENVIRONMENT="${{ github.event.inputs.environment || 'production' }}"
+          SERVICE="${{ github.event.inputs.service || 'all' }}"
           
-          echo "📋 Running containers:"
-          docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | head -20
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref_name }}" != "main" ]]; then
+            echo "❌ Infrastructure can only be auto-deployed from main branch"
+            exit 1
+          fi
           
-          if [[ "${{ github.event.inputs.component }}" == "nginx" || "${{ github.event.inputs.component }}" == "all" ]]; then
-            echo ""
-            echo "🌐 Nginx status:"
-            if docker ps | grep -q "cach-nginx"; then
-              docker exec cach-nginx nginx -t && echo "✅ Nginx configuration valid" || echo "❌ Nginx configuration invalid"
+          echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+          echo "service=$SERVICE" >> $GITHUB_OUTPUT
+          echo "✅ Deploying $SERVICE to $ENVIRONMENT environment"
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_SSH_PASSWORD }}
+          script: |
+            set -e
+            
+            ENVIRONMENT="${{ steps.validate.outputs.environment }}"
+            SERVICE="${{ steps.validate.outputs.service }}"
+            
+            # Create directory structure if it doesn't exist
+            mkdir -p /opt/cach/{production,staging,sandbox}
+            mkdir -p /opt/cach/shared/{nginx,grafana,loki,promtail,certbot}
+            
+            # Deploy to specific environment or all environments
+            deploy_to_environment() {
+              local env=$1
+              echo "🚀 Deploying infrastructure to $env environment..."
+              
+              cd /opt/cach/$env
+              
+              # Load environment-specific variables
+              if [ -f ".env.$env" ]; then
+                export $(cat .env.$env | xargs)
+              fi
+              
+              case "$SERVICE" in
+                "all")
+                  echo "📦 Deploying all infrastructure services..."
+                  docker-compose -f docker-compose.$env.yml up -d postgres minio
+                  sleep 30  # Wait for databases to be ready
+                  ;;
+                "postgres")
+                  echo "🐘 Deploying PostgreSQL..."
+                  docker-compose -f docker-compose.$env.yml up -d postgres
+                  ;;
+                "minio")
+                  echo "📦 Deploying MinIO..."
+                  docker-compose -f docker-compose.$env.yml up -d minio
+                  ;;
+                *)
+                  echo "⚠️  Service $SERVICE not handled for environment-specific deployment"
+                  ;;
+              esac
+              
+              echo "✅ Infrastructure deployment completed for $env environment"
+            }
+            
+            deploy_shared_services() {
+              echo "🌐 Deploying shared services..."
+              
+              cd /opt/cach/shared
+              
+              case "$SERVICE" in
+                "all"|"nginx")
+                  echo "🌐 Deploying Nginx..."
+                  # Update nginx configuration
+                  sudo cp -r nginx/* /etc/nginx/
+                  sudo nginx -t && sudo systemctl reload nginx
+                  ;;
+                "all"|"grafana")
+                  echo "📊 Deploying Grafana..."
+                  docker-compose -f docker-compose.shared.yml up -d grafana
+                  ;;
+                "all"|"loki")
+                  echo "📋 Deploying Loki..."
+                  docker-compose -f docker-compose.shared.yml up -d loki
+                  ;;
+                "all"|"promtail")
+                  echo "📝 Deploying Promtail..."
+                  docker-compose -f docker-compose.shared.yml up -d promtail
+                  ;;
+              esac
+            }
+            
+            # Deploy based on environment selection
+            if [[ "$ENVIRONMENT" == "all" ]]; then
+              deploy_to_environment "production"
+              deploy_to_environment "staging" 
+              deploy_to_environment "sandbox"
+              deploy_shared_services
+            elif [[ "$SERVICE" == "nginx" || "$SERVICE" == "grafana" || "$SERVICE" == "loki" || "$SERVICE" == "promtail" ]]; then
+              deploy_shared_services
             else
-              echo "❌ Nginx container (cach-nginx) is not running"
-              echo "🔍 Checking if container exists but stopped:"
-              docker ps -a | grep cach-nginx || echo "   No cach-nginx container found"
-              echo "🔍 Checking nginx logs:"
-              docker logs cach-nginx 2>/dev/null | tail -10 || echo "   No logs available for cach-nginx"
+              deploy_to_environment "$ENVIRONMENT"
             fi
-          fi
-          
-          if [[ "${{ github.event.inputs.component }}" == "monitoring" || "${{ github.event.inputs.component }}" == "all" ]]; then
-            echo ""
-            echo "📊 Monitoring services:"
-            timeout 10 curl -f http://localhost:3000 > /dev/null && echo "✅ Grafana responding" || echo "⚠️ Grafana not responding"
-            timeout 10 curl -f http://localhost:3100/ready > /dev/null && echo "✅ Loki responding" || echo "⚠️ Loki not responding"
-          fi
+            
+            # Clean up unused Docker resources
+            docker system prune -f
+            
+            echo "🎉 Infrastructure deployment completed successfully!"
+
+      - name: Setup SSL certificates (if nginx deployed)
+        if: ${{ steps.validate.outputs.service == 'all' || steps.validate.outputs.service == 'nginx' }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_SSH_PASSWORD }}
+          script: |
+            echo "🔒 Setting up SSL certificates..."
+            
+            # List of domains to get certificates for
+            DOMAINS=(
+              "api.cachconnect.co.ke"
+              "admin.cachconnect.co.ke"
+              "agents.cachconnect.co.ke"
+              "distributors.cachconnect.co.ke"
+              "business.cachconnect.co.ke"
+              "lenders.cachconnect.co.ke"
+              "api.staging.cachconnect.co.ke"
+              "admin.staging.cachconnect.co.ke"
+              "agents.staging.cachconnect.co.ke"
+              "distributors.staging.cachconnect.co.ke"
+              "business.staging.cachconnect.co.ke"
+              "lenders.staging.cachconnect.co.ke"
+              "api.sandbox.cachconnect.co.ke"
+              "admin.sandbox.cachconnect.co.ke"
+              "agents.sandbox.cachconnect.co.ke"
+              "distributors.sandbox.cachconnect.co.ke"
+              "business.sandbox.cachconnect.co.ke"
+              "lenders.sandbox.cachconnect.co.ke"
+              "monitoring.cachconnect.co.ke"
+              "storage.cachconnect.co.ke"
+              "storage.staging.cachconnect.co.ke"
+              "storage.sandbox.cachconnect.co.ke"
+            )
+            
+            cd /opt/cach/shared
+            
+            # Create directories for certbot
+            mkdir -p certbot/{conf,www}
+            
+            # Get certificates for each domain
+            for domain in "${DOMAINS[@]}"; do
+              echo "Getting certificate for $domain..."
+              
+              # Check if certificate already exists and is valid
+              if sudo certbot certificates | grep -q "$domain"; then
+                echo "Certificate for $domain already exists"
+                continue
+              fi
+              
+              # Get new certificate
+              sudo certbot certonly \
+                --webroot \
+                --webroot-path=/opt/cach/shared/certbot/www \
+                --email ${{ secrets.ADMIN_EMAIL }} \
+                --agree-tos \
+                --no-eff-email \
+                -d $domain \
+                --non-interactive || echo "Failed to get certificate for $domain"
+            done
+            
+            # Reload nginx to use new certificates
+            sudo nginx -t && sudo systemctl reload nginx
+            
+            echo "✅ SSL certificate setup completed"

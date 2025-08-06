@@ -1,0 +1,185 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: cach_postgres_production
+    environment:
+      POSTGRES_DB: cach_db_production
+      POSTGRES_USER: cach_user
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+    volumes:
+      - postgres_production_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - cach_production_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cach_user -d cach_db_production"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO Object Storage
+  minio:
+    image: minio/minio:latest
+    container_name: cach_minio_production
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_production_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - cach_production_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # API Service
+  api:
+    image: ${API_IMAGE_NAME}:${API_PRODUCTION_TAG}
+    container_name: cach_api_production
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME}
+      - MINIO_USE_SSL=${MINIO_USE_SSL}
+      - MINIO_ENDPOINT=minio
+      - MINIO_PORT=${MINIO_PORT}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_SECURE=${SMTP_SECURE}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM_NAME=${SMTP_FROM_NAME}
+      - SMTP_FROM_EMAIL=${SMTP_FROM_EMAIL}
+      - SUPPORT_EMAIL=${SUPPORT_EMAIL}
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - ALLOWED_FILE_TYPES=${ALLOWED_FILE_TYPES}
+      - MAX_FILE_SIZE=${MAX_FILE_SIZE}
+      - LOG_LEVEL=${LOG_LEVEL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - cach_production_network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=api,environment=production"
+
+  # Admin App
+  admin:
+    image: ${ADMIN_IMAGE_NAME}:${ADMIN_PRODUCTION_TAG}
+    container_name: cach_admin_production
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=https://api.cachconnect.co.ke
+    networks:
+      - cach_production_network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=admin,environment=production"
+
+  # Agent App
+  agents:
+    image: ${AGENT_IMAGE_NAME}:${AGENT_PRODUCTION_TAG}
+    container_name: cach_agents_production
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=https://api.cachconnect.co.ke
+    networks:
+      - cach_production_network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=agents,environment=production"
+
+  # Distributor App
+  distributors:
+    image: ${DISTRIBUTOR_IMAGE_NAME}:${DISTRIBUTOR_PRODUCTION_TAG}
+    container_name: cach_distributors_production
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=https://api.cachconnect.co.ke
+    networks:
+      - cach_production_network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=distributors,environment=production"
+
+  # Business App
+  business:
+    image: ${BUSINESS_IMAGE_NAME}:${BUSINESS_PRODUCTION_TAG}
+    container_name: cach_business_production
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=https://api.cachconnect.co.ke
+    networks:
+      - cach_production_network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=business,environment=production"
+
+  # Lender App
+  lenders:
+    image: ${LENDER_IMAGE_NAME}:${LENDER_PRODUCTION_TAG}
+    container_name: cach_lenders_production
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=https://api.cachconnect.co.ke
+    networks:
+      - cach_production_network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=lenders,environment=production"
+
+volumes:
+  postgres_production_data:
+    driver: local
+  minio_production_data:
+    driver: local
+
+networks:
+  cach_production_network:
+    driver: bridge
