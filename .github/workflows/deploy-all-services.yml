@@ -1,0 +1,319 @@
+name: Deploy All Services
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+          - sandbox
+      services:
+        description: 'Services to deploy (comma-separated or "all")'
+        required: true
+        default: 'all'
+        type: string
+      skip_build:
+        description: 'Skip building images (use existing tags)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: docker.io
+
+jobs:
+  validate-deployment:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      services: ${{ steps.set-env.outputs.services }}
+      tag: ${{ steps.set-env.outputs.tag }}
+      api_url: ${{ steps.set-env.outputs.api_url }}
+    steps:
+      - name: Determine environment and validate parameters
+        id: set-env
+        run: |
+          ENVIRONMENT="${{ github.event.inputs.environment }}"
+          SERVICES="${{ github.event.inputs.services }}"
+          
+          # Validate branch permissions
+          if [[ "$ENVIRONMENT" == "production" && "${{ github.ref_name }}" != "main" ]]; then
+            echo "❌ Cannot deploy to production from branch '${{ github.ref_name }}'. Only 'main' branch is allowed."
+            exit 1
+          elif [[ "$ENVIRONMENT" == "staging" && "${{ github.ref_name }}" != "staging" ]]; then
+            echo "❌ Cannot deploy to staging from branch '${{ github.ref_name }}'. Only 'staging' branch is allowed."
+            exit 1
+          elif [[ "$ENVIRONMENT" == "sandbox" && "${{ github.ref_name }}" != "sandbox" ]]; then
+            echo "❌ Cannot deploy to sandbox from branch '${{ github.ref_name }}'. Only 'sandbox' branch is allowed."
+            exit 1
+          fi
+          
+          TAG="${{ github.ref_name }}"
+          
+          # Set API URL based on environment
+          case "$ENVIRONMENT" in
+            "production")
+              API_URL="https://api.cachconnect.co.ke"
+              ;;
+            "staging")
+              API_URL="https://api.staging.cachconnect.co.ke"
+              ;;
+            "sandbox")
+              API_URL="https://api.sandbox.cachconnect.co.ke"
+              ;;
+          esac
+          
+          # Process services list
+          if [[ "$SERVICES" == "all" ]]; then
+            SERVICES="api,admin,agents,distributors,business,lenders"
+          fi
+          
+          echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+          echo "services=$SERVICES" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "api_url=$API_URL" >> $GITHUB_OUTPUT
+          echo "✅ Deploying services [$SERVICES] to $ENVIRONMENT environment using tag $TAG"
+
+  build-images:
+    runs-on: ubuntu-latest
+    needs: validate-deployment
+    if: ${{ github.event.inputs.skip_build != 'true' }}
+    environment: ${{ needs.validate-deployment.outputs.environment }}
+    strategy:
+      matrix:
+        service: [api, admin, agents, distributors, business, lenders]
+    steps:
+      - name: Check if service should be built
+        id: check-service
+        run: |
+          SERVICES="${{ needs.validate-deployment.outputs.services }}"
+          SERVICE="${{ matrix.service }}"
+          
+          if [[ ",$SERVICES," == *",$SERVICE,"* ]]; then
+            echo "build=true" >> $GITHUB_OUTPUT
+            echo "✅ Building $SERVICE"
+          else
+            echo "build=false" >> $GITHUB_OUTPUT
+            echo "⏭️ Skipping $SERVICE"
+          fi
+
+      - name: Checkout code
+        if: steps.check-service.outputs.build == 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        if: steps.check-service.outputs.build == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        if: steps.check-service.outputs.build == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Set image name
+        if: steps.check-service.outputs.build == 'true'
+        id: image-name
+        run: |
+          case "${{ matrix.service }}" in
+            "api")
+              IMAGE_NAME="abc254/api-cach-api"
+              ;;
+            "admin")
+              IMAGE_NAME="abc254/cach-admin"
+              ;;
+            "agents")
+              IMAGE_NAME="abc254/cach-agents"
+              ;;
+            "distributors")
+              IMAGE_NAME="abc254/cach-distributors"
+              ;;
+            "business")
+              IMAGE_NAME="abc254/cach-business"
+              ;;
+            "lenders")
+              IMAGE_NAME="abc254/cach-lenders"
+              ;;
+          esac
+          echo "image_name=$IMAGE_NAME" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata
+        if: steps.check-service.outputs.build == 'true'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.image-name.outputs.image_name }}
+          tags: |
+            type=raw,value=${{ needs.validate-deployment.outputs.tag }}
+            type=sha,prefix=${{ needs.validate-deployment.outputs.tag }}-
+            type=raw,value=latest,enable=${{ needs.validate-deployment.outputs.environment == 'production' }}
+
+      - name: Build and push Docker image
+        if: steps.check-service.outputs.build == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.service }}
+          file: ./${{ matrix.service }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ needs.validate-deployment.outputs.api_url }}
+            NODE_ENV=${{ needs.validate-deployment.outputs.environment }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+  deploy-services:
+    runs-on: ubuntu-latest
+    needs: [validate-deployment, build-images]
+    if: always() && (needs.build-images.result == 'success' || needs.build-images.result == 'skipped')
+    environment: ${{ needs.validate-deployment.outputs.environment }}
+    
+    steps:
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_SSH_PASSWORD }}
+          script: |
+            set -e
+            
+            ENVIRONMENT="${{ needs.validate-deployment.outputs.environment }}"
+            SERVICES="${{ needs.validate-deployment.outputs.services }}"
+            TAG="${{ needs.validate-deployment.outputs.tag }}"
+            SKIP_BUILD="${{ github.event.inputs.skip_build }}"
+            
+            echo "🚀 Starting deployment to $ENVIRONMENT environment..."
+            echo "📦 Services to deploy: $SERVICES"
+            echo "🏷️  Using tag: $TAG"
+            
+            cd /opt/cach/$ENVIRONMENT
+            
+            # Load environment-specific variables
+            if [ -f ".env.$ENVIRONMENT" ]; then
+              export $(cat .env.$ENVIRONMENT | xargs)
+            fi
+            
+            # Set deployment-specific variables
+            export ENVIRONMENT=$ENVIRONMENT
+            export API_TAG=$TAG
+            export ADMIN_TAG=$TAG
+            export AGENT_TAG=$TAG
+            export DISTRIBUTOR_TAG=$TAG
+            export BUSINESS_TAG=$TAG
+            export LENDER_TAG=$TAG
+            
+            # Function to pull image if not skipping build
+            pull_image() {
+              local service=$1
+              local image_name=$2
+              
+              if [[ "$SKIP_BUILD" != "true" ]]; then
+                echo "📥 Pulling $service image..."
+                docker pull $image_name:$TAG
+              else
+                echo "⏭️ Skipping pull for $service (using existing image)"
+              fi
+            }
+            
+            # Function to deploy a service
+            deploy_service() {
+              local service=$1
+              local image_name=$2
+              local port=$3
+              
+              echo "🔄 Deploying $service..."
+              
+              pull_image $service $image_name
+              
+              # Update the service
+              docker-compose -f docker-compose.$ENVIRONMENT.yml up -d $service
+              
+              # Wait for service to be healthy
+              echo "⏳ Waiting for $service to be healthy..."
+              timeout=60
+              while [ $timeout -gt 0 ]; do
+                if curl -f http://127.0.0.1:$port > /dev/null 2>&1; then
+                  echo "✅ $service is healthy"
+                  return 0
+                fi
+                echo "⏳ Waiting for $service... ($timeout seconds remaining)"
+                sleep 5
+                timeout=$((timeout-5))
+              done
+              
+              echo "❌ $service failed to become healthy within 60 seconds"
+              docker-compose -f docker-compose.$ENVIRONMENT.yml logs $service
+              return 1
+            }
+            
+            # Deploy each service
+            IFS=',' read -ra SERVICE_ARRAY <<< "$SERVICES"
+            FAILED_SERVICES=()
+            
+            for service in "${SERVICE_ARRAY[@]}"; do
+              service=$(echo $service | xargs)  # Trim whitespace
+              
+              case "$service" in
+                "api")
+                  if [[ "$ENVIRONMENT" == "production" ]]; then PORT=3000; fi
+                  if [[ "$ENVIRONMENT" == "staging" ]]; then PORT=3100; fi
+                  if [[ "$ENVIRONMENT" == "sandbox" ]]; then PORT=3200; fi
+                  deploy_service "api" "abc254/api-cach-api" $PORT || FAILED_SERVICES+=("api")
+                  ;;
+                "admin")
+                  if [[ "$ENVIRONMENT" == "production" ]]; then PORT=3001; fi
+                  if [[ "$ENVIRONMENT" == "staging" ]]; then PORT=3101; fi
+                  if [[ "$ENVIRONMENT" == "sandbox" ]]; then PORT=3201; fi
+                  deploy_service "admin" "abc254/cach-admin" $PORT || FAILED_SERVICES+=("admin")
+                  ;;
+                "agents")
+                  if [[ "$ENVIRONMENT" == "production" ]]; then PORT=3002; fi
+                  if [[ "$ENVIRONMENT" == "staging" ]]; then PORT=3102; fi
+                  if [[ "$ENVIRONMENT" == "sandbox" ]]; then PORT=3202; fi
+                  deploy_service "agents" "abc254/cach-agents" $PORT || FAILED_SERVICES+=("agents")
+                  ;;
+                "distributors")
+                  if [[ "$ENVIRONMENT" == "production" ]]; then PORT=3003; fi
+                  if [[ "$ENVIRONMENT" == "staging" ]]; then PORT=3103; fi
+                  if [[ "$ENVIRONMENT" == "sandbox" ]]; then PORT=3203; fi
+                  deploy_service "distributors" "abc254/cach-distributors" $PORT || FAILED_SERVICES+=("distributors")
+                  ;;
+                "business")
+                  if [[ "$ENVIRONMENT" == "production" ]]; then PORT=3004; fi
+                  if [[ "$ENVIRONMENT" == "staging" ]]; then PORT=3104; fi
+                  if [[ "$ENVIRONMENT" == "sandbox" ]]; then PORT=3204; fi
+                  deploy_service "business" "abc254/cach-business" $PORT || FAILED_SERVICES+=("business")
+                  ;;
+                "lenders")
+                  if [[ "$ENVIRONMENT" == "production" ]]; then PORT=3005; fi
+                  if [[ "$ENVIRONMENT" == "staging" ]]; then PORT=3105; fi
+                  if [[ "$ENVIRONMENT" == "sandbox" ]]; then PORT=3205; fi
+                  deploy_service "lenders" "abc254/cach-lenders" $PORT || FAILED_SERVICES+=("lenders")
+                  ;;
+                *)
+                  echo "⚠️ Unknown service: $service"
+                  ;;
+              esac
+            done
+            
+            # Clean up unused images
+            echo "🧹 Cleaning up unused Docker images..."
+            docker image prune -f
+            
+            # Report results
+            if [ ${#FAILED_SERVICES[@]} -eq 0 ]; then
+              echo "🎉 All services deployed successfully to $ENVIRONMENT environment!"
+            else
+              echo "⚠️ Some services failed to deploy:"
+              printf '%s\n' "${FAILED_SERVICES[@]}"
+              exit 1
+            fi
