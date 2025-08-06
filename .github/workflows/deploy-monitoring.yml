@@ -29,8 +29,6 @@ jobs:
     - name: Setup SSH with password
       run: |
         sudo apt-get update && sudo apt-get install -y sshpass
-        mkdir -p ~/.ssh
-        ssh-keyscan ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
         
     - name: Deploy monitoring stack to VPS
       run: |
