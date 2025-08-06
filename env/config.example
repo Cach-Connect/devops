@@ -55,7 +55,8 @@ MINIO_SECRET_KEY=your_minio_secret
 MINIO_ACCESS_KEY=your_access_key
 MINIO_BUCKET_NAME=cach-storage
 MINIO_USE_SSL=false
-MINIO_ENDPOINT=localhost:9000
+MINIO_ENDPOINT=minio-production
+MINIO_PORT=9000
 
 # Grafana
 GRAFANA_PASSWORD=admin123

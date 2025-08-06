@@ -401,7 +401,14 @@ deploy_app() {
             api)
                 print_status "Starting API dependencies (postgres and minio)..."
                 docker-compose -f docker-compose.main.yml --env-file "$main_env_file" up -d "postgres-${ENVIRONMENT}" "minio-${ENVIRONMENT}"
-                sleep 10  # Wait for dependencies to be ready
+                
+                print_status "Waiting for PostgreSQL to be ready..."
+                timeout 60 bash -c "until docker exec cach-postgres-${ENVIRONMENT} pg_isready -U cach_user; do echo 'Waiting for PostgreSQL...'; sleep 5; done" || print_warning "PostgreSQL health check timeout"
+                
+                print_status "Waiting for MinIO to be ready..."
+                timeout 60 bash -c "until docker exec cach-minio-${ENVIRONMENT} curl -f http://localhost:9000/minio/health/live; do echo 'Waiting for MinIO...'; sleep 5; done" || print_warning "MinIO health check timeout"
+                
+                print_status "Dependencies are ready, starting API..."
                 ;;
         esac
         
