@@ -143,4 +143,4 @@ volumes:
 networks:
   cach-infra-network:
     driver: bridge
-    external: true
+    external: false
