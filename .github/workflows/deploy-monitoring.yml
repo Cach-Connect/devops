@@ -1,15 +1,17 @@
 name: Deploy Monitoring Stack
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'nginx/**'
-      - 'scripts/**'
-      - 'env/**'
-      - '.github/workflows/deploy-monitoring.yml'
   workflow_dispatch:
     inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+          - sandbox
       force_deploy:
         description: 'Force deployment even without changes'
         required: false
