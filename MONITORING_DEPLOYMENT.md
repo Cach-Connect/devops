@@ -48,8 +48,8 @@ This guide explains how to deploy and manage the monitoring infrastructure (Graf
 Ensure these secrets are configured in your repository:
 
 ### **SSH Access**
-- `VPS_SSH_PASSWORD` - SSH password for server access
-- `VPS_HOST` - Server hostname/IP  
+- `VPS_SSH_PASSWORD` - SSH password for server access  
+- `VPS_HOST` - Server hostname/IP
 - `VPS_USER` - SSH username
 
 ### **Database**
