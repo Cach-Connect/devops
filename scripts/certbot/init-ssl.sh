@@ -60,7 +60,7 @@ for domain in $DOMAINS; do
         --no-eff-email \
         --force-renewal \
         $STAGING_FLAG \
-        -d $domain
+        -d $domain -v
     status=$?
     set -e
     if [ $status -eq 0 ]; then
