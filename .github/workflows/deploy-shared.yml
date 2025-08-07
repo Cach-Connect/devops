@@ -207,13 +207,11 @@ jobs:
               "deploy")
                 echo "🚀 Deploying shared infrastructure..."
                 
-                # Test nginx configuration syntax
+                # Test nginx configuration syntax inside the compose service (ensures Docker DNS works)
                 echo "🔍 Testing nginx configuration..."
-                docker run --rm \
-                  -v "$(pwd)/nginx/nginx.conf:/etc/nginx/nginx.conf:ro" \
-                  -v "$(pwd)/nginx/conf.d:/etc/nginx/conf.d:ro" \
-                  -v "$(pwd)/ssl/letsencrypt:/etc/letsencrypt:ro" \
-                  nginx:1.25-alpine nginx -t || {
+                docker-compose -f docker-compose.shared.yml up -d nginx
+                sleep 5
+                docker-compose -f docker-compose.shared.yml exec -T nginx nginx -t || {
                   echo "❌ nginx configuration test failed"
                   echo "📋 nginx configuration files:"
                   ls -la nginx/
