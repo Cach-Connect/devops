@@ -50,6 +50,7 @@ services:
     image: abc254/cach-api:staging
     container_name: cach_api_staging
     environment:
+      - ENVIRONMENT=staging
       - NODE_ENV=staging
       - DATABASE_URL=${DATABASE_URL}
       - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
