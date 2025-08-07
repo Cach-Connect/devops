@@ -131,7 +131,7 @@ cat > /opt/cach/production/.env.production << 'EOF'
 ENVIRONMENT=production
 
 # Docker Images
-API_IMAGE_NAME=abc254/api-cach-api
+API_IMAGE_NAME=abc254/cach-api
 AGENT_IMAGE_NAME=abc254/cach-agents
 DISTRIBUTOR_IMAGE_NAME=abc254/cach-distributors
 BUSINESS_IMAGE_NAME=abc254/cach-business
@@ -193,7 +193,7 @@ cat > /opt/cach/staging/.env.staging << 'EOF'
 ENVIRONMENT=staging
 
 # Docker Images
-API_IMAGE_NAME=abc254/api-cach-api
+API_IMAGE_NAME=abc254/cach-api
 AGENT_IMAGE_NAME=abc254/cach-agents
 DISTRIBUTOR_IMAGE_NAME=abc254/cach-distributors
 BUSINESS_IMAGE_NAME=abc254/cach-business
@@ -255,7 +255,7 @@ cat > /opt/cach/sandbox/.env.sandbox << 'EOF'
 ENVIRONMENT=sandbox
 
 # Docker Images
-API_IMAGE_NAME=abc254/api-cach-api
+API_IMAGE_NAME=abc254/cach-api
 AGENT_IMAGE_NAME=abc254/cach-agents
 DISTRIBUTOR_IMAGE_NAME=abc254/cach-distributors
 BUSINESS_IMAGE_NAME=abc254/cach-business
