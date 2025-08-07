@@ -34,8 +34,8 @@ services:
     volumes:
       - minio_sandbox_data:/data
     ports:
-      - "9020:9000"
-      - "9021:9001"
+      - "9010:9000"
+      - "9011:9001"
     networks:
       - cach_sandbox_network
     restart: unless-stopped
@@ -47,11 +47,15 @@ services:
 
   # API Service
   api:
-    image: ${API_IMAGE_NAME}:${API_SANDBOX_TAG}
+    image: abc254/cach-api:sandbox
     container_name: cach_api_sandbox
     environment:
+      - ENVIRONMENT=sandbox
       - NODE_ENV=sandbox
-      - DATABASE_URL=${DATABASE_URL}
+      - PORT=3001
+      - DATABASE_URL=postgresql://cach_user:${DATABASE_PASSWORD}@postgres:5432/cach_db_sandbox?schema=public
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
       - MINIO_ROOT_USER=${MINIO_ROOT_USER}
@@ -59,9 +63,9 @@ services:
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
       - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME}
-      - MINIO_USE_SSL=${MINIO_USE_SSL}
+      - MINIO_USE_SSL=false
       - MINIO_ENDPOINT=minio
-      - MINIO_PORT=${MINIO_PORT}
+      - MINIO_PORT=9000
       - SMTP_HOST=${SMTP_HOST}
       - SMTP_PORT=${SMTP_PORT}
       - SMTP_SECURE=${SMTP_SECURE}
@@ -74,6 +78,14 @@ services:
       - ALLOWED_FILE_TYPES=${ALLOWED_FILE_TYPES}
       - MAX_FILE_SIZE=${MAX_FILE_SIZE}
       - LOG_LEVEL=${LOG_LEVEL}
+      - API_URL=https://api.sandbox.cachconnect.co.ke
+      - LENDER_APP_URL=${LENDER_APP_URL}
+      - DISTRIBUTOR_APP_URL=${DISTRIBUTOR_APP_URL}
+      - BUSINESS_APP_URL=${BUSINESS_APP_URL}
+      - AGENT_APP_URL=${AGENT_APP_URL}
+      - ADMIN_APP_URL=${ADMIN_APP_URL}
+    ports:
+      - "4002:3001"
     depends_on:
       postgres:
         condition: service_healthy
@@ -87,92 +99,144 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-        labels: "service=api,environment=sandbox"
 
   # Admin App
   admin:
-    image: ${ADMIN_IMAGE_NAME}:${ADMIN_SANDBOX_TAG}
+    image: abc254/cach-admin:sandbox
     container_name: cach_admin_sandbox
     environment:
       - NODE_ENV=sandbox
       - NEXT_PUBLIC_API_URL=https://api.sandbox.cachconnect.co.ke
+    ports:
+      - "4052:3000"
     networks:
       - cach_sandbox_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-        labels: "service=admin,environment=sandbox"
+
+  # Website
+  website:
+    image: abc254/cach-website:sandbox
+    container_name: cach_website_sandbox
+    environment:
+      - NODE_ENV=sandbox
+      - NEXT_PUBLIC_API_URL=https://api.sandbox.cachconnect.co.ke
+    ports:
+      - "4062:3000"
+    networks:
+      - cach_sandbox_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # Agent App
   agents:
-    image: ${AGENT_IMAGE_NAME}:${AGENT_SANDBOX_TAG}
+    image: abc254/cach-agent:sandbox
     container_name: cach_agents_sandbox
     environment:
       - NODE_ENV=sandbox
       - NEXT_PUBLIC_API_URL=https://api.sandbox.cachconnect.co.ke
+    ports:
+      - "4012:3000"
     networks:
       - cach_sandbox_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-        labels: "service=agents,environment=sandbox"
 
   # Distributor App
   distributors:
-    image: ${DISTRIBUTOR_IMAGE_NAME}:${DISTRIBUTOR_SANDBOX_TAG}
+    image: abc254/cach-distributor:sandbox
     container_name: cach_distributors_sandbox
     environment:
       - NODE_ENV=sandbox
       - NEXT_PUBLIC_API_URL=https://api.sandbox.cachconnect.co.ke
+    ports:
+      - "4022:3000"
     networks:
       - cach_sandbox_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-        labels: "service=distributors,environment=sandbox"
 
   # Business App
   business:
-    image: ${BUSINESS_IMAGE_NAME}:${BUSINESS_SANDBOX_TAG}
+    image: abc254/cach-business:sandbox
     container_name: cach_business_sandbox
     environment:
       - NODE_ENV=sandbox
       - NEXT_PUBLIC_API_URL=https://api.sandbox.cachconnect.co.ke
+    ports:
+      - "4032:3000"
     networks:
       - cach_sandbox_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-        labels: "service=business,environment=sandbox"
 
   # Lender App
   lenders:
-    image: ${LENDER_IMAGE_NAME}:${LENDER_SANDBOX_TAG}
+    image: abc254/cach-lender:sandbox
     container_name: cach_lenders_sandbox
     environment:
       - NODE_ENV=sandbox
       - NEXT_PUBLIC_API_URL=https://api.sandbox.cachconnect.co.ke
+    ports:
+      - "4042:3000"
     networks:
       - cach_sandbox_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-        labels: "service=lenders,environment=sandbox"
 
 volumes:
   postgres_sandbox_data:

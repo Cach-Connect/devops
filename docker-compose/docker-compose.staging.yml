@@ -78,7 +78,7 @@ services:
       - ALLOWED_FILE_TYPES=${ALLOWED_FILE_TYPES}
       - MAX_FILE_SIZE=${MAX_FILE_SIZE}
       - LOG_LEVEL=${LOG_LEVEL}
-      - API_URL=${API_URL}
+      - API_URL=https://api.staging.cachconnect.co.ke
       - LENDER_APP_URL=${LENDER_APP_URL}
       - DISTRIBUTOR_APP_URL=${DISTRIBUTOR_APP_URL}
       - BUSINESS_APP_URL=${BUSINESS_APP_URL}
@@ -106,9 +106,32 @@ services:
     container_name: cach_admin_staging
     environment:
       - NODE_ENV=staging
-      - NEXT_PUBLIC_API_URL=${API_URL}
+      - NEXT_PUBLIC_API_URL=https://api.staging.cachconnect.co.ke
     ports:
       - "4051:3000"
+    networks:
+      - cach_staging_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Website
+  website:
+    image: abc254/cach-website:staging
+    container_name: cach_website_staging
+    environment:
+      - NODE_ENV=staging
+      - NEXT_PUBLIC_API_URL=https://api.staging.cachconnect.co.ke
+    ports:
+      - "4061:3000"
     networks:
       - cach_staging_network
     restart: unless-stopped
@@ -129,7 +152,7 @@ services:
     container_name: cach_agents_staging
     environment:
       - NODE_ENV=staging
-      - NEXT_PUBLIC_API_URL=${API_URL}
+      - NEXT_PUBLIC_API_URL=https://api.staging.cachconnect.co.ke
     ports:
       - "4011:3000"
     networks:
@@ -152,7 +175,7 @@ services:
     container_name: cach_distributors_staging
     environment:
       - NODE_ENV=staging
-      - NEXT_PUBLIC_API_URL=${API_URL}
+      - NEXT_PUBLIC_API_URL=https://api.staging.cachconnect.co.ke
     ports:
       - "4021:3000"
     networks:
@@ -175,7 +198,7 @@ services:
     container_name: cach_business_staging
     environment:
       - NODE_ENV=staging
-      - NEXT_PUBLIC_API_URL=${API_URL}
+      - NEXT_PUBLIC_API_URL=https://api.staging.cachconnect.co.ke
     ports:
       - "4031:3000"
     networks:
@@ -198,7 +221,7 @@ services:
     container_name: cach_lenders_staging
     environment:
       - NODE_ENV=staging
-      - NEXT_PUBLIC_API_URL=${API_URL}
+      - NEXT_PUBLIC_API_URL=https://api.staging.cachconnect.co.ke
     ports:
       - "4041:3000"
     networks:
