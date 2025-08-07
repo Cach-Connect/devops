@@ -123,7 +123,7 @@ jobs:
         run: |
           case "${{ matrix.service }}" in
             "api")
-              IMAGE_NAME="abc254/api-cach-api"
+              IMAGE_NAME="abc254/cach-api"
               ;;
             "admin")
               IMAGE_NAME="abc254/cach-admin"
@@ -183,6 +183,73 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_SSH_PASSWORD }}
+          envs: DATABASE_PASSWORD,MINIO_ROOT_USER,MINIO_ROOT_PASSWORD,API_IMAGE_NAME,DATABASE_URL,JWT_SECRET,JWT_EXPIRES_IN,MINIO_SECRET_KEY,MINIO_ACCESS_KEY,MINIO_BUCKET_NAME,MINIO_USE_SSL,MINIO_PORT,SMTP_HOST,SMTP_PORT,SMTP_SECURE,SMTP_USER,SMTP_PASS,SMTP_FROM_NAME,SMTP_FROM_EMAIL,SUPPORT_EMAIL,CORS_ORIGINS,ALLOWED_FILE_TYPES,MAX_FILE_SIZE,LOG_LEVEL,AGENT_IMAGE_NAME,DISTRIBUTOR_IMAGE_NAME,BUSINESS_IMAGE_NAME,ADMIN_IMAGE_NAME,LENDER_IMAGE_NAME,API_PRODUCTION_TAG,AGENT_PRODUCTION_TAG,DISTRIBUTOR_PRODUCTION_TAG,BUSINESS_PRODUCTION_TAG,ADMIN_PRODUCTION_TAG,LENDER_PRODUCTION_TAG,API_STAGING_TAG,AGENT_STAGING_TAG,DISTRIBUTOR_STAGING_TAG,BUSINESS_STAGING_TAG,ADMIN_STAGING_TAG,LENDER_STAGING_TAG,API_SANDBOX_TAG,AGENT_SANDBOX_TAG,DISTRIBUTOR_SANDBOX_TAG,BUSINESS_SANDBOX_TAG,ADMIN_SANDBOX_TAG,LENDER_SANDBOX_TAG
+        env:
+          # Database
+          DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          
+          # MinIO
+          MINIO_ROOT_USER: ${{ secrets.MINIO_ROOT_USER }}
+          MINIO_ROOT_PASSWORD: ${{ secrets.MINIO_ROOT_PASSWORD }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_BUCKET_NAME: ${{ vars.MINIO_BUCKET_NAME }}
+          MINIO_USE_SSL: ${{ vars.MINIO_USE_SSL }}
+          MINIO_PORT: ${{ vars.MINIO_PORT }}
+          
+          # JWT
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_EXPIRES_IN: ${{ vars.JWT_EXPIRES_IN }}
+          
+          # SMTP
+          SMTP_HOST: ${{ vars.SMTP_HOST }}
+          SMTP_PORT: ${{ vars.SMTP_PORT }}
+          SMTP_SECURE: ${{ vars.SMTP_SECURE }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SMTP_FROM_NAME: ${{ vars.SMTP_FROM_NAME }}
+          SMTP_FROM_EMAIL: ${{ vars.SMTP_FROM_EMAIL }}
+          SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
+          
+          # CORS and Security
+          CORS_ORIGINS: ${{ vars.CORS_ORIGINS }}
+          ALLOWED_FILE_TYPES: ${{ vars.ALLOWED_FILE_TYPES }}
+          MAX_FILE_SIZE: ${{ vars.MAX_FILE_SIZE }}
+          LOG_LEVEL: ${{ vars.LOG_LEVEL }}
+          
+          # Docker Images
+          API_IMAGE_NAME: ${{ vars.API_IMAGE_NAME }}
+          AGENT_IMAGE_NAME: ${{ vars.AGENT_IMAGE_NAME }}
+          DISTRIBUTOR_IMAGE_NAME: ${{ vars.DISTRIBUTOR_IMAGE_NAME }}
+          BUSINESS_IMAGE_NAME: ${{ vars.BUSINESS_IMAGE_NAME }}
+          ADMIN_IMAGE_NAME: ${{ vars.ADMIN_IMAGE_NAME }}
+          LENDER_IMAGE_NAME: ${{ vars.LENDER_IMAGE_NAME }}
+          
+          # Production Tags
+          API_PRODUCTION_TAG: ${{ vars.API_PRODUCTION_TAG }}
+          AGENT_PRODUCTION_TAG: ${{ vars.AGENT_PRODUCTION_TAG }}
+          DISTRIBUTOR_PRODUCTION_TAG: ${{ vars.DISTRIBUTOR_PRODUCTION_TAG }}
+          BUSINESS_PRODUCTION_TAG: ${{ vars.BUSINESS_PRODUCTION_TAG }}
+          ADMIN_PRODUCTION_TAG: ${{ vars.ADMIN_PRODUCTION_TAG }}
+          LENDER_PRODUCTION_TAG: ${{ vars.LENDER_PRODUCTION_TAG }}
+          
+          # Staging Tags
+          API_STAGING_TAG: ${{ vars.API_STAGING_TAG }}
+          AGENT_STAGING_TAG: ${{ vars.AGENT_STAGING_TAG }}
+          DISTRIBUTOR_STAGING_TAG: ${{ vars.DISTRIBUTOR_STAGING_TAG }}
+          BUSINESS_STAGING_TAG: ${{ vars.BUSINESS_STAGING_TAG }}
+          ADMIN_STAGING_TAG: ${{ vars.ADMIN_STAGING_TAG }}
+          LENDER_STAGING_TAG: ${{ vars.LENDER_STAGING_TAG }}
+          
+          # Sandbox Tags
+          API_SANDBOX_TAG: ${{ vars.API_SANDBOX_TAG }}
+          AGENT_SANDBOX_TAG: ${{ vars.AGENT_SANDBOX_TAG }}
+          DISTRIBUTOR_SANDBOX_TAG: ${{ vars.DISTRIBUTOR_SANDBOX_TAG }}
+          BUSINESS_SANDBOX_TAG: ${{ vars.BUSINESS_SANDBOX_TAG }}
+          ADMIN_SANDBOX_TAG: ${{ vars.ADMIN_SANDBOX_TAG }}
+          LENDER_SANDBOX_TAG: ${{ vars.LENDER_SANDBOX_TAG }}
+          
           script: |
             set -e
             
@@ -196,12 +263,7 @@ jobs:
             echo "🏷️  Using tag: $TAG"
             
             cd /opt/cach/$ENVIRONMENT
-            
-            # Load environment-specific variables
-            if [ -f ".env.$ENVIRONMENT" ]; then
-              export $(cat .env.$ENVIRONMENT | xargs)
-            fi
-            
+              
             # Set deployment-specific variables
             export ENVIRONMENT=$ENVIRONMENT
             export API_TAG=$TAG
@@ -267,7 +329,7 @@ jobs:
                   if [[ "$ENVIRONMENT" == "production" ]]; then PORT=3000; fi
                   if [[ "$ENVIRONMENT" == "staging" ]]; then PORT=3100; fi
                   if [[ "$ENVIRONMENT" == "sandbox" ]]; then PORT=3200; fi
-                  deploy_service "api" "abc254/api-cach-api" $PORT || FAILED_SERVICES+=("api")
+                  deploy_service "api" "abc254/cach-api" $PORT || FAILED_SERVICES+=("api")
                   ;;
                 "admin")
                   if [[ "$ENVIRONMENT" == "production" ]]; then PORT=3001; fi
