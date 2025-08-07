@@ -27,7 +27,7 @@ docker run --rm \
     -v "$(pwd)/ssl/letsencrypt:/etc/letsencrypt" \
     -v "$(pwd)/ssl/www:/var/www/certbot" \
     -v "$(pwd)/scripts/certbot:/scripts" \
-    --entrypoint=/bin/bash \
+    --entrypoint=/bin/sh \
     certbot/certbot:latest \
     /scripts/init-ssl.sh $STAGING
 
