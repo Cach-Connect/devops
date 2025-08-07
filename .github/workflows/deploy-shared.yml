@@ -103,6 +103,14 @@ jobs:
             rm -rf monitoring && mkdir -p monitoring
             cp -r ~/devops/monitoring/* ./monitoring/
             
+            # Ensure Grafana dashboards directory exists and has proper permissions
+            echo "📊 Setting up Grafana dashboards..."
+            mkdir -p monitoring/grafana/dashboards
+            if [ -f "~/devops/monitoring/grafana/dashboards/cach-overview.json" ]; then
+              cp ~/devops/monitoring/grafana/dashboards/* ./monitoring/grafana/dashboards/ 2>/dev/null || true
+            fi
+            chmod -R 755 monitoring/grafana/dashboards
+            
             # Copy nginx configuration
             echo "📋 Setting up nginx configuration..."
             rm -rf nginx && mkdir -p nginx
@@ -128,6 +136,7 @@ jobs:
               "monitoring/promtail/promtail.yml"
               "monitoring/alertmanager/alertmanager.yml"
               "monitoring/grafana/provisioning/datasources/datasources.yml"
+              "monitoring/grafana/dashboards/cach-overview.json"
               "nginx/nginx.conf"
               "nginx/conf.d/cach.conf"
               "docker-compose.shared.yml"
@@ -165,6 +174,17 @@ jobs:
               "deploy")
                 echo "🚀 Deploying shared infrastructure..."
                 
+                # Test nginx configuration syntax
+                echo "🔍 Testing nginx configuration..."
+                docker run --rm -v "$(pwd)/nginx/nginx.conf:/etc/nginx/nginx.conf:ro" -v "$(pwd)/nginx/conf.d:/etc/nginx/conf.d:ro" nginx:1.25-alpine nginx -t || {
+                  echo "❌ nginx configuration test failed"
+                  echo "📋 nginx configuration files:"
+                  ls -la nginx/
+                  ls -la nginx/conf.d/
+                  exit 1
+                }
+                echo "✅ nginx configuration is valid"
+                
                 # Pull latest images
                 echo "🐳 Pulling latest Docker images..."
                 docker-compose -f docker-compose.shared.yml pull
@@ -187,6 +207,15 @@ jobs:
                     echo "✅ $service is running"
                   else
                     echo "❌ $service is not running"
+                    if [ "$service" = "nginx" ]; then
+                      echo "🔍 Debugging nginx container:"
+                      echo "All containers with 'nginx' in name:"
+                      docker ps -a | grep nginx || echo "No nginx containers found"
+                      echo "nginx container logs:"
+                      docker logs cach_nginx --tail=20 2>/dev/null || echo "Could not get nginx logs"
+                      echo "Testing nginx config syntax:"
+                      docker exec cach_nginx nginx -t 2>/dev/null || echo "Could not test nginx config"
+                    fi
                     all_healthy=false
                   fi
                 done
