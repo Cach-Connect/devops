@@ -27,8 +27,9 @@ docker run --rm \
     -v "$(pwd)/ssl/letsencrypt:/etc/letsencrypt" \
     -v "$(pwd)/ssl/www:/var/www/certbot" \
     -v "$(pwd)/scripts/certbot:/scripts" \
+    --entrypoint=/bin/bash \
     certbot/certbot:latest \
-    /bin/bash /scripts/init-ssl.sh $STAGING
+    /scripts/init-ssl.sh $STAGING
 
 # Set up automatic renewal via cron
 echo "⏰ Setting up automatic renewal..."
