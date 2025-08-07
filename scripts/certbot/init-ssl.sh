@@ -50,7 +50,8 @@ mkdir -p /var/www/certbot
 
 for domain in $DOMAINS; do
     echo "📜 Obtaining certificate for $domain..."
-    
+    # Allow failure per-domain so we continue the loop
+    set +e
     certbot certonly \
         --webroot \
         --webroot-path=/var/www/certbot \
@@ -60,16 +61,14 @@ for domain in $DOMAINS; do
         --force-renewal \
         $STAGING_FLAG \
         -d $domain
-    
-    if [ $? -eq 0 ]; then
+    status=$?
+    set -e
+    if [ $status -eq 0 ]; then
         echo "✅ Certificate obtained successfully for $domain"
     else
         echo "❌ Failed to obtain certificate for $domain"
     fi
 done
-
-echo "🔄 Reloading nginx configuration..."
-nginx -s reload
 
 echo "🎉 SSL certificate initialization completed!"
 echo "📅 Certificates will auto-renew. Check with: certbot certificates"
