@@ -47,7 +47,37 @@ deploy_services() {
     mkdir -p logs
     
     echo "🔧 Setting script permissions..."
-    chmod +x scripts/*.sh scripts/certbot/*.sh
+    chmod +x scripts/*.sh scripts/certbot/*.sh 2>/dev/null || echo "⚠️  Some scripts may not exist yet"
+    
+    # Verify critical files exist
+    echo "🔍 Verifying configuration files..."
+    required_files=(
+        "monitoring/prometheus/prometheus.yml"
+        "monitoring/loki/loki.yml"
+        "monitoring/promtail/promtail.yml"
+        "monitoring/alertmanager/alertmanager.yml"
+        "monitoring/grafana/provisioning/datasources/datasources.yml"
+        "nginx/nginx.conf"
+        "docker-compose/docker-compose.shared.yml"
+    )
+    
+    missing_files=false
+    for file in "${required_files[@]}"; do
+        if [ -f "$file" ]; then
+            echo "✅ $file exists"
+        else
+            echo "❌ $file is missing"
+            missing_files=true
+        fi
+    done
+    
+    if [ "$missing_files" = true ]; then
+        echo "❌ Some required configuration files are missing."
+        echo "📁 Current directory structure:"
+        find . -type f -name "*.yml" -o -name "*.yaml" -o -name "*.conf" | head -20
+        echo "💡 Make sure you're running this from the devops directory with all files present."
+        return 1
+    fi
     
     echo "📋 Setting up environment configuration..."
     if [ ! -f ".env.monitoring" ]; then
