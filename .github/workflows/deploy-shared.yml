@@ -171,6 +171,7 @@ jobs:
               "monitoring/grafana/dashboards/cach-overview.json"
               "nginx/nginx.conf"
               "nginx/conf.d/cach.conf"
+              "nginx/conf.d/default.conf"
               "docker-compose.shared.yml"
             )
             
