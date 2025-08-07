@@ -89,9 +89,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-        labels:
-          service: "api"
-          environment: "staging"
 
   # Admin App
   admin:
@@ -99,7 +96,7 @@ services:
     container_name: cach_admin_staging
     environment:
       - NODE_ENV=staging
-      - NEXT_PUBLIC_API_URL=https://api.staging.cachconnect.co.ke
+      - NEXT_PUBLIC_API_URL=${API_URL}
     networks:
       - cach_staging_network
     restart: unless-stopped
@@ -108,9 +105,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-        labels:
-          service: "admin"
-          environment: "staging"
 
   # Agent App
   agents:
@@ -118,7 +112,7 @@ services:
     container_name: cach_agents_staging
     environment:
       - NODE_ENV=staging
-      - NEXT_PUBLIC_API_URL=https://api.staging.cachconnect.co.ke
+      - NEXT_PUBLIC_API_URL=${API_URL}
     networks:
       - cach_staging_network
     restart: unless-stopped
@@ -127,9 +121,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-        labels:
-          service: "agents"
-          environment: "staging"
 
   # Distributor App
   distributors:
@@ -137,7 +128,7 @@ services:
     container_name: cach_distributors_staging
     environment:
       - NODE_ENV=staging
-      - NEXT_PUBLIC_API_URL=https://api.staging.cachconnect.co.ke
+      - NEXT_PUBLIC_API_URL=${API_URL}
     networks:
       - cach_staging_network
     restart: unless-stopped
@@ -146,9 +137,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-        labels:
-          service: "distributors"
-          environment: "staging"
 
   # Business App
   business:
@@ -156,7 +144,7 @@ services:
     container_name: cach_business_staging
     environment:
       - NODE_ENV=staging
-      - NEXT_PUBLIC_API_URL=https://api.staging.cachconnect.co.ke
+      - NEXT_PUBLIC_API_URL=${API_URL}
     networks:
       - cach_staging_network
     restart: unless-stopped
@@ -165,9 +153,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-        labels:
-          service: "business"
-          environment: "staging"
 
   # Lender App
   lenders:
@@ -175,7 +160,7 @@ services:
     container_name: cach_lenders_staging
     environment:
       - NODE_ENV=staging
-      - NEXT_PUBLIC_API_URL=https://api.staging.cachconnect.co.ke
+      - NEXT_PUBLIC_API_URL=${API_URL}
     networks:
       - cach_staging_network
     restart: unless-stopped
@@ -184,9 +169,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-        labels:
-          service: "lenders"
-          environment: "staging"
 
 volumes:
   postgres_staging_data:

@@ -87,9 +87,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-        labels:
-          service: "api"
-          environment: "production"
 
   # Admin App
   admin:
@@ -106,9 +103,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-        labels:
-          service: "admin"
-          environment: "production"
 
   # Agent App
   agents:
@@ -125,9 +119,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-        labels:
-          service: "agents"
-          environment: "production"
 
   # Distributor App
   distributors:
@@ -144,9 +135,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-        labels:
-          service: "distributors"
-          environment: "production"
 
   # Business App
   business:
@@ -163,9 +151,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-        labels:
-          service: "business"
-          environment: "production"
 
   # Lender App
   lenders:
@@ -182,9 +167,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-        labels:
-          service: "lenders"
-          environment: "production"
 
 volumes:
   postgres_production_data:
