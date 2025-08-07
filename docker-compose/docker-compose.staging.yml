@@ -52,6 +52,7 @@ services:
     environment:
       - ENVIRONMENT=staging
       - NODE_ENV=staging
+      - PORT=${PORT}
       - DATABASE_URL=${DATABASE_URL}
       - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
       - DATABASE_PASSWORD=${DATABASE_PASSWORD}
@@ -77,6 +78,12 @@ services:
       - ALLOWED_FILE_TYPES=${ALLOWED_FILE_TYPES}
       - MAX_FILE_SIZE=${MAX_FILE_SIZE}
       - LOG_LEVEL=${LOG_LEVEL}
+      - API_URL=${API_URL}
+      - LENDER_APP_URL=${LENDER_APP_URL}
+      - DISTRIBUTOR_APP_URL=${DISTRIBUTOR_APP_URL}
+      - BUSINESS_APP_URL=${BUSINESS_APP_URL}
+      - AGENT_APP_URL=${AGENT_APP_URL}
+      - ADMIN_APP_URL=${ADMIN_APP_URL}
     depends_on:
       postgres:
         condition: service_healthy
