@@ -52,8 +52,8 @@ services:
     environment:
       - ENVIRONMENT=staging
       - NODE_ENV=staging
-      - PORT=${PORT}
-      - DATABASE_URL=${DATABASE_URL}
+      - PORT=3001
+      - DATABASE_URL=postgresql://cach_user:${DATABASE_PASSWORD}@postgres:5432/cach_db_staging?schema=public
       - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
       - DATABASE_PASSWORD=${DATABASE_PASSWORD}
       - JWT_SECRET=${JWT_SECRET}
@@ -63,9 +63,9 @@ services:
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
       - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME}
-      - MINIO_USE_SSL=${MINIO_USE_SSL}
+      - MINIO_USE_SSL=false
       - MINIO_ENDPOINT=minio
-      - MINIO_PORT=${MINIO_PORT}
+      - MINIO_PORT=9000
       - SMTP_HOST=${SMTP_HOST}
       - SMTP_PORT=${SMTP_PORT}
       - SMTP_SECURE=${SMTP_SECURE}
@@ -84,6 +84,8 @@ services:
       - BUSINESS_APP_URL=${BUSINESS_APP_URL}
       - AGENT_APP_URL=${AGENT_APP_URL}
       - ADMIN_APP_URL=${ADMIN_APP_URL}
+    ports:
+      - "4001:3001"
     depends_on:
       postgres:
         condition: service_healthy
