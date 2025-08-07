@@ -15,10 +15,10 @@ services:
       - ../ssl/private:/etc/ssl/private:ro
       - nginx_logs:/var/log/nginx
     networks:
+      - monitoring_network
       - cach_production_network
       - cach_staging_network
       - cach_sandbox_network
-      - monitoring_network
     restart: unless-stopped
     depends_on:
       - prometheus
@@ -49,9 +49,6 @@ services:
       - '--web.enable-admin-api'
     networks:
       - monitoring_network
-      - cach_production_network
-      - cach_staging_network
-      - cach_sandbox_network
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -229,9 +226,13 @@ volumes:
 networks:
   monitoring_network:
     driver: bridge
+    name: cach_monitoring_network
   cach_production_network:
-    external: true
+    driver: bridge
+    name: cach_production_network
   cach_staging_network:
-    external: true
+    driver: bridge
+    name: cach_staging_network
   cach_sandbox_network:
-    external: true
+    driver: bridge
+    name: cach_sandbox_network

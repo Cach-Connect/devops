@@ -223,4 +223,5 @@ volumes:
 
 networks:
   cach_staging_network:
-    driver: bridge
+    external: true
+    name: cach_staging_network

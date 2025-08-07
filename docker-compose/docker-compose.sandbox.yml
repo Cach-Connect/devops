@@ -182,4 +182,5 @@ volumes:
 
 networks:
   cach_sandbox_network:
-    driver: bridge
+    external: true
+    name: cach_sandbox_network

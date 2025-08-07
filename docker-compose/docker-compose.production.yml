@@ -176,4 +176,5 @@ volumes:
 
 networks:
   cach_production_network:
-    driver: bridge
+    external: true
+    name: cach_production_network
