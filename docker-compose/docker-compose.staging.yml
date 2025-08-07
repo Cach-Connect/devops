@@ -47,7 +47,7 @@ services:
 
   # API Service
   api:
-    image: cach-api:staging
+    image: abc254/cach-api:staging
     container_name: cach_api_staging
     environment:
       - NODE_ENV=staging
@@ -91,7 +91,7 @@ services:
 
   # Admin App
   admin:
-    image: cach-admin:staging
+    image: abc254/cach-admin:staging
     container_name: cach_admin_staging
     environment:
       - NODE_ENV=staging
@@ -108,7 +108,7 @@ services:
 
   # Agent App
   agents:
-    image: cach-agent:staging
+    image: abc254/cach-agent:staging
     container_name: cach_agents_staging
     environment:
       - NODE_ENV=staging
@@ -125,7 +125,7 @@ services:
 
   # Distributor App
   distributors:
-    image: cach-distributor:staging
+    image: abc254/cach-distributor:staging
     container_name: cach_distributors_staging
     environment:
       - NODE_ENV=staging
@@ -142,7 +142,7 @@ services:
 
   # Business App
   business:
-    image: cach-business:staging
+    image: abc254/cach-business:staging
     container_name: cach_business_staging
     environment:
       - NODE_ENV=staging
@@ -159,7 +159,7 @@ services:
 
   # Lender App
   lenders:
-    image: cach-lender:staging
+    image: abc254/cach-lender:staging
     container_name: cach_lenders_staging
     environment:
       - NODE_ENV=staging
