@@ -107,9 +107,16 @@ services:
     environment:
       - NODE_ENV=staging
       - NEXT_PUBLIC_API_URL=${API_URL}
+    ports:
+      - "4051:3000"
     networks:
       - cach_staging_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     logging:
       driver: "json-file"
       options:
@@ -124,7 +131,7 @@ services:
       - NODE_ENV=staging
       - NEXT_PUBLIC_API_URL=${API_URL}
     ports:
-      - "4010:3000"
+      - "4011:3000"
     networks:
       - cach_staging_network
     restart: unless-stopped
@@ -146,9 +153,16 @@ services:
     environment:
       - NODE_ENV=staging
       - NEXT_PUBLIC_API_URL=${API_URL}
+    ports:
+      - "4021:3000"
     networks:
       - cach_staging_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     logging:
       driver: "json-file"
       options:
@@ -162,9 +176,16 @@ services:
     environment:
       - NODE_ENV=staging
       - NEXT_PUBLIC_API_URL=${API_URL}
+    ports:
+      - "4031:3000"
     networks:
       - cach_staging_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     logging:
       driver: "json-file"
       options:
@@ -178,9 +199,16 @@ services:
     environment:
       - NODE_ENV=staging
       - NEXT_PUBLIC_API_URL=${API_URL}
+    ports:
+      - "4041:3000"
     networks:
       - cach_staging_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     logging:
       driver: "json-file"
       options:
