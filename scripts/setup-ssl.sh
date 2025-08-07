@@ -12,19 +12,19 @@ echo "🔒 Setting up SSL certificates for Cach Connect..."
 cd "$(dirname "$0")/.."
 
 # Create required directories
-mkdir -p ssl/certs ssl/private ssl/www
+mkdir -p ssl/letsencrypt ssl/www
 
 # Ensure nginx is running to serve ACME challenge
 if ! docker ps | grep -q "cach_nginx"; then
     echo "🚀 Starting nginx for ACME challenge..."
-    docker-compose -f docker-compose/docker-compose.shared.yml up -d nginx
+    docker-compose -f docker-compose.shared.yml up -d nginx
     sleep 10
 fi
 
 # Run the SSL initialization script
 echo "📜 Obtaining SSL certificates..."
 docker run --rm \
-    -v "$(pwd)/ssl/certs:/etc/letsencrypt" \
+    -v "$(pwd)/ssl/letsencrypt:/etc/letsencrypt" \
     -v "$(pwd)/ssl/www:/var/www/certbot" \
     -v "$(pwd)/scripts/certbot:/scripts" \
     certbot/certbot:latest \
@@ -51,6 +51,6 @@ rm /tmp/certbot-cron
 
 echo "🎉 SSL setup completed!"
 echo "🔄 Reloading nginx with SSL configuration..."
-docker-compose -f docker-compose/docker-compose.shared.yml restart nginx
+docker-compose -f docker-compose.shared.yml restart nginx
 
 echo "✅ SSL certificates are now active!"
