@@ -69,8 +69,15 @@ jobs:
 
             # Get latest devops configuration
             echo "📥 Downloading latest devops configuration..."
-            cd devops || (git clone https://github.com/Cach-Connect/devops.git ~/devops && cd ~/devops)
-            git pull origin main
+            if [ -d "devops" ]; then
+              echo "Devops directory exists, updating..."
+              cd devops
+              git pull origin main
+            else
+              echo "Devops directory doesn't exist, cloning..."
+              git clone https://github.com/Cach-Connect/devops.git devops
+              cd devops
+            fi
 
             # Set environment variables
             ENVIRONMENT="${{ needs.validate-deployment.outputs.environment }}"
