@@ -35,8 +35,8 @@ docker run --rm \
 echo "⏰ Setting up automatic renewal..."
 cat > /tmp/certbot-cron << 'EOF'
 # Renew SSL certificates twice daily
-0 12 * * * /opt/cach/devops/scripts/certbot/renew-ssl.sh >> /var/log/certbot-renew.log 2>&1
-0 0 * * * /opt/cach/devops/scripts/certbot/renew-ssl.sh >> /var/log/certbot-renew.log 2>&1
+0 12 * * * /opt/cach/shared/scripts/certbot/renew-ssl.sh >> /var/log/certbot-renew.log 2>&1
+0 0 * * * /opt/cach/shared/scripts/certbot/renew-ssl.sh >> /var/log/certbot-renew.log 2>&1
 EOF
 
 # Install cron job (requires sudo)
