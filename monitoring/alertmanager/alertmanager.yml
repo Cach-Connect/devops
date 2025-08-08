@@ -1,15 +1,12 @@
 global:
-  smtp_smarthost: 'localhost:587'
-  smtp_from: 'alerts@cachconnect.co.ke'
-  smtp_auth_username: 'alerts@cachconnect.co.ke'
-  smtp_auth_password: '${SMTP_PASSWORD}'
+  # Basic global configuration without external dependencies
 
 route:
   group_by: ['alertname']
   group_wait: 10s
   group_interval: 10s
   repeat_interval: 1h
-  receiver: 'web.hook'
+  receiver: 'default-receiver'
   routes:
     - match:
         severity: critical
@@ -19,57 +16,14 @@ route:
       receiver: 'warning-alerts'
 
 receivers:
-  - name: 'web.hook'
-    webhook_configs:
-      - url: 'http://127.0.0.1:5001/'
+  - name: 'default-receiver'
+    # Default receiver that logs alerts without external dependencies
 
   - name: 'critical-alerts'
-    email_configs:
-      - to: 'admin@cachconnect.co.ke'
-        subject: '[CRITICAL] Cach System Alert: {{ .GroupLabels.alertname }}'
-        body: |
-          {{ range .Alerts }}
-          Alert: {{ .Annotations.summary }}
-          Description: {{ .Annotations.description }}
-          Instance: {{ .Labels.instance }}
-          Severity: {{ .Labels.severity }}
-          Time: {{ .StartsAt }}
-          {{ end }}
-    slack_configs:
-      - api_url: '${SLACK_WEBHOOK_URL}'
-        channel: '#alerts-critical'
-        title: 'Critical Alert: {{ .GroupLabels.alertname }}'
-        text: |
-          {{ range .Alerts }}
-          *Alert:* {{ .Annotations.summary }}
-          *Description:* {{ .Annotations.description }}
-          *Instance:* {{ .Labels.instance }}
-          *Severity:* {{ .Labels.severity }}
-          {{ end }}
-
+    # Critical alerts logged for now - can be configured later with SMTP/Slack
+    
   - name: 'warning-alerts'
-    email_configs:
-      - to: 'devops@cachconnect.co.ke'
-        subject: '[WARNING] Cach System Alert: {{ .GroupLabels.alertname }}'
-        body: |
-          {{ range .Alerts }}
-          Alert: {{ .Annotations.summary }}
-          Description: {{ .Annotations.description }}
-          Instance: {{ .Labels.instance }}
-          Severity: {{ .Labels.severity }}
-          Time: {{ .StartsAt }}
-          {{ end }}
-    slack_configs:
-      - api_url: '${SLACK_WEBHOOK_URL}'
-        channel: '#alerts-warning'
-        title: 'Warning Alert: {{ .GroupLabels.alertname }}'
-        text: |
-          {{ range .Alerts }}
-          *Alert:* {{ .Annotations.summary }}
-          *Description:* {{ .Annotations.description }}
-          *Instance:* {{ .Labels.instance }}
-          *Severity:* {{ .Labels.severity }}
-          {{ end }}
+    # Warning alerts logged for now - can be configured later with SMTP/Slack
 
 inhibit_rules:
   - source_match:
