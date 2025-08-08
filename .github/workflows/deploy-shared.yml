@@ -6,12 +6,10 @@ on:
       environment:
         description: 'Environment to deploy to'
         required: true
-        default: 'production'
+        default: 'shared'
         type: choice
         options:
-          - production
-          - staging
-          - sandbox
+          - shared
       action:
         description: 'Action to perform'
         required: true
