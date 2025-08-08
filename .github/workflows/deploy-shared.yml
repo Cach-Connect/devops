@@ -107,12 +107,11 @@ jobs:
             fi
             chmod -R 755 monitoring/grafana/dashboards
             
-            # Copy nginx configuration (flexible - handles all services with graceful fallbacks)
-            echo "📋 Setting up nginx configuration (flexible for all services)..."
-            rm -rf nginx && mkdir -p nginx/conf.d
+            # Copy nginx configuration (shared infrastructure only)
+            echo "📋 Setting up nginx configuration (shared infrastructure)..."
+            rm -rf nginx && mkdir -p nginx
             cp ~/devops/nginx/nginx-http.conf ./nginx/nginx.conf
-            cp ~/devops/nginx/conf.d/cach-flexible.conf ./nginx/conf.d/cach.conf
-            cp ~/devops/nginx/conf.d/default.conf ./nginx/conf.d/default.conf
+            cp ~/devops/nginx/conf.d/shared-http.conf ./nginx/shared.conf
             
             # Create SSL directories (certificates managed separately via SSL workflow)
             echo "🔒 Setting up SSL directories..."
@@ -139,8 +138,7 @@ jobs:
               "monitoring/grafana/provisioning/datasources/datasources.yml"
               "monitoring/grafana/dashboards/cach-overview.json"
               "nginx/nginx.conf"
-              "nginx/conf.d/cach.conf"
-              "nginx/conf.d/default.conf"
+              "nginx/shared.conf"
               "docker-compose.shared.yml"
             )
             
@@ -182,15 +180,14 @@ jobs:
                 
                 # Test nginx configuration syntax first without starting services
                 echo "🔍 Testing nginx configuration syntax..."
-                docker run --rm -v $(pwd)/nginx/nginx.conf:/etc/nginx/nginx.conf -v $(pwd)/nginx/conf.d:/etc/nginx/conf.d nginx:1.25-alpine nginx -t || {
+                docker run --rm -v $(pwd)/nginx/nginx.conf:/etc/nginx/nginx.conf -v $(pwd)/nginx/shared.conf:/etc/nginx/conf.d/default.conf nginx:1.25-alpine nginx -t || {
                   echo "❌ nginx configuration syntax test failed"
                   echo "📋 nginx configuration files:"
                   ls -la nginx/
-                  ls -la nginx/conf.d/
                   echo "📄 nginx.conf content:"
                   head -20 nginx/nginx.conf
-                  echo "📄 cach.conf content:"
-                  head -20 nginx/conf.d/cach.conf
+                  echo "📄 shared.conf content:"
+                  head -20 nginx/shared.conf
                   exit 1
                 }
                 echo "✅ nginx configuration syntax is valid"
@@ -294,22 +291,16 @@ jobs:
                 fi
                 
                 echo "🎉 Shared infrastructure deployment completed successfully!"
-                echo "📊 All service access points (HTTP with graceful fallbacks):"
-                echo "   - Website: http://cachconnect.co.ke (fallback if service not running)"
-                echo "   - API: http://api.cachconnect.co.ke (fallback if service not running)"
-                echo "   - Admin: http://admin.cachconnect.co.ke (fallback if service not running)"
-                echo "   - Agents: http://agents.cachconnect.co.ke (fallback if service not running)"
-                echo "   - Storage: http://storage.cachconnect.co.ke (fallback if service not running)"
+                echo "📊 Shared infrastructure access points:"
                 echo "   - Grafana (Monitoring): http://monitoring.cachconnect.co.ke"
                 echo "   - Prometheus: http://${{ secrets.VPS_HOST }}:9090"
                 echo "   - Alertmanager: http://${{ secrets.VPS_HOST }}:9093"
                 echo "   - Loki (Logs): http://${{ secrets.VPS_HOST }}:3100"
                 echo ""
-                echo "📋 Service behavior:"
-                echo "   - Working services: Respond normally"
-                echo "   - Missing services: Show 'starting up' message with monitoring link"
-                echo "   - Deploy individual services when ready using their respective workflows"
-                echo "   - Run 'SSL Certificate Management' to enable HTTPS for all services"
+                echo "📋 Next steps:"
+                echo "   - Deploy application services using their respective environment workflows"
+                echo "   - All unknown domains and IP access are blocked (return 444)"
+                echo "   - Run 'SSL Certificate Management' to enable HTTPS"
                 ;;
                 
               "restart")
