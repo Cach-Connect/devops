@@ -87,9 +87,9 @@ services:
     ports:
       - "4002:3001"
     depends_on:
-      postgres:
+      postgres-sandbox:
         condition: service_healthy
-      minio:
+      minio-sandbox:
         condition: service_healthy
     networks:
       - cach_sandbox_network

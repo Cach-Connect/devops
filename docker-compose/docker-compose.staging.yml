@@ -87,9 +87,9 @@ services:
     ports:
       - "4001:3001"
     depends_on:
-      postgres:
+      postgres-staging:
         condition: service_healthy
-      minio:
+      minio-staging:
         condition: service_healthy
     networks:
       - cach_staging_network

@@ -87,9 +87,9 @@ services:
     ports:
       - "4000:3001"
     depends_on:
-      postgres:
+      postgres-production:
         condition: service_healthy
-      minio:
+      minio-production:
         condition: service_healthy
     networks:
       - cach_production_network
