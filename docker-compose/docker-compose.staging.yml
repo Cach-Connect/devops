@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   # PostgreSQL Database
-  postgres:
+  postgres-staging:
     image: postgres:15-alpine
     container_name: cach_postgres_staging
     environment:
@@ -24,7 +24,7 @@ services:
       retries: 5
 
   # MinIO Object Storage
-  minio:
+  minio-staging:
     image: minio/minio:latest
     container_name: cach_minio_staging
     environment:
@@ -46,7 +46,7 @@ services:
       retries: 3
 
   # API Service
-  api:
+  api-staging:
     image: abc254/cach-api:staging
     container_name: cach_api_staging
     environment:
@@ -101,7 +101,7 @@ services:
         max-file: "3"
 
   # Admin App
-  admin:
+  admin-staging:
     image: abc254/cach-admin:staging
     container_name: cach_admin_staging
     environment:
@@ -124,7 +124,7 @@ services:
         max-file: "3"
 
   # Website
-  website:
+  website-staging:
     image: abc254/cach-website:staging
     container_name: cach_website_staging
     environment:
@@ -147,7 +147,7 @@ services:
         max-file: "3"
 
   # Agent App
-  agents:
+  agents-staging:
     image: abc254/cach-agent:staging
     container_name: cach_agents_staging
     environment:
@@ -170,7 +170,7 @@ services:
         max-file: "3"
 
   # Distributor App
-  distributors:
+  distributors-staging:
     image: abc254/cach-distributor:staging
     container_name: cach_distributors_staging
     environment:
@@ -193,7 +193,7 @@ services:
         max-file: "3"
 
   # Business App
-  business:
+  business-staging:
     image: abc254/cach-business:staging
     container_name: cach_business_staging
     environment:
@@ -216,7 +216,7 @@ services:
         max-file: "3"
 
   # Lender App
-  lenders:
+  lenders-staging:
     image: abc254/cach-lender:staging
     container_name: cach_lenders_staging
     environment:

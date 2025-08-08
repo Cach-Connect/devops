@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   # PostgreSQL Database
-  postgres:
+  postgres-sandbox:
     image: postgres:15-alpine
     container_name: cach_postgres_sandbox
     environment:
@@ -24,7 +24,7 @@ services:
       retries: 5
 
   # MinIO Object Storage
-  minio:
+  minio-sandbox:
     image: minio/minio:latest
     container_name: cach_minio_sandbox
     environment:
@@ -46,7 +46,7 @@ services:
       retries: 3
 
   # API Service
-  api:
+  api-sandbox:
     image: abc254/cach-api:sandbox
     container_name: cach_api_sandbox
     environment:
@@ -101,7 +101,7 @@ services:
         max-file: "3"
 
   # Admin App
-  admin:
+  admin-sandbox:
     image: abc254/cach-admin:sandbox
     container_name: cach_admin_sandbox
     environment:
@@ -124,7 +124,7 @@ services:
         max-file: "3"
 
   # Website
-  website:
+  website-sandbox:
     image: abc254/cach-website:sandbox
     container_name: cach_website_sandbox
     environment:
@@ -147,7 +147,7 @@ services:
         max-file: "3"
 
   # Agent App
-  agents:
+  agents-sandbox:
     image: abc254/cach-agent:sandbox
     container_name: cach_agents_sandbox
     environment:
@@ -170,7 +170,7 @@ services:
         max-file: "3"
 
   # Distributor App
-  distributors:
+  distributors-sandbox:
     image: abc254/cach-distributor:sandbox
     container_name: cach_distributors_sandbox
     environment:
@@ -193,7 +193,7 @@ services:
         max-file: "3"
 
   # Business App
-  business:
+  business-sandbox:
     image: abc254/cach-business:sandbox
     container_name: cach_business_sandbox
     environment:
@@ -216,7 +216,7 @@ services:
         max-file: "3"
 
   # Lender App
-  lenders:
+  lenders-sandbox:
     image: abc254/cach-lender:sandbox
     container_name: cach_lenders_sandbox
     environment:
