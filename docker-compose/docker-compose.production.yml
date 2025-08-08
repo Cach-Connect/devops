@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   # PostgreSQL Database
-  postgres-prod:
+  postgres-production:
     image: postgres:15-alpine
     container_name: cach_postgres_production
     environment:
@@ -24,7 +24,7 @@ services:
       retries: 5
 
   # MinIO Object Storage
-  minio-prod:
+  minio-production:
     image: minio/minio:latest
     container_name: cach_minio_production
     environment:
@@ -46,7 +46,7 @@ services:
       retries: 3
 
   # API Service
-  api-prod:
+  api-production:
     image: abc254/cach-api:production
     container_name: cach_api_production
     environment:
@@ -101,7 +101,7 @@ services:
         max-file: "3"
 
   # Admin App
-  admin-prod:
+  admin-production:
     image: abc254/cach-admin:production
     container_name: cach_admin_production
     environment:
@@ -124,7 +124,7 @@ services:
         max-file: "3"
 
   # Website
-  website-prod:
+  website-production:
     image: abc254/cach-website:production
     container_name: cach_website_production
     environment:
@@ -147,7 +147,7 @@ services:
         max-file: "3"
 
   # Agent App
-  agents-prod:
+  agents-production:
     image: abc254/cach-agent:production
     container_name: cach_agents_production
     environment:
@@ -170,7 +170,7 @@ services:
         max-file: "3"
 
   # Distributor App
-  distributors-prod:
+  distributors-production:
     image: abc254/cach-distributor:production
     container_name: cach_distributors_production
     environment:
@@ -193,7 +193,7 @@ services:
         max-file: "3"
 
   # Business App
-  business-prod:
+  business-production:
     image: abc254/cach-business:production
     container_name: cach_business_production
     environment:
@@ -216,7 +216,7 @@ services:
         max-file: "3"
 
   # Lender App
-  lenders-prod:
+  lenders-production:
     image: abc254/cach-lender:production
     container_name: cach_lenders_production
     environment:
