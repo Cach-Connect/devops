@@ -19,8 +19,6 @@ on:
           - deploy
           - restart
           - stop
-          - ssl-setup
-          - ssl-renew
 
 env:
   REGISTRY: docker.io
@@ -114,38 +112,9 @@ jobs:
             rm -rf nginx && mkdir -p nginx
             cp -r ~/devops/nginx/* ./nginx/
             
-            # Create SSL directories and placeholder files for nginx
-            echo "🔒 Setting up SSL placeholder files..."
-            mkdir -p ssl/letsencrypt/live ssl/letsencrypt/archive
-            
-            # Create SSL options configuration file
-            {
-              echo "# SSL Security Configuration"
-              echo "ssl_protocols TLSv1.2 TLSv1.3;"
-              echo "ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;"
-              echo "ssl_prefer_server_ciphers off;"
-              echo "ssl_session_timeout 1d;"
-              echo "ssl_session_cache shared:SSL:50m;"
-              echo "ssl_stapling on;"
-              echo "ssl_stapling_verify on;"
-            } > ssl/letsencrypt/options-ssl-nginx.conf
-            
-            # Create SSL dhparam file
-            openssl dhparam -out ssl/letsencrypt/ssl-dhparams.pem 2048 2>/dev/null || echo "# Placeholder dhparam" > ssl/letsencrypt/ssl-dhparams.pem
-            
-            # Create placeholder certificates for all domains
-            domains="api.cachconnect.co.ke admin.cachconnect.co.ke cachconnect.co.ke www.cachconnect.co.ke agents.cachconnect.co.ke distributors.cachconnect.co.ke businesses.cachconnect.co.ke lenders.cachconnect.co.ke api.staging.cachconnect.co.ke admin.staging.cachconnect.co.ke staging.cachconnect.co.ke agents.staging.cachconnect.co.ke distributors.staging.cachconnect.co.ke business.staging.cachconnect.co.ke lenders.staging.cachconnect.co.ke api.sandbox.cachconnect.co.ke admin.sandbox.cachconnect.co.ke agents.sandbox.cachconnect.co.ke distributors.sandbox.cachconnect.co.ke business.sandbox.cachconnect.co.ke lenders.sandbox.cachconnect.co.ke monitoring.cachconnect.co.ke storage.cachconnect.co.ke storage.staging.cachconnect.co.ke storage.sandbox.cachconnect.co.ke"
-            
-            for domain in $domains; do
-              cert_dir="ssl/letsencrypt/live/$domain"
-              mkdir -p "$cert_dir"
-              if [ ! -f "$cert_dir/fullchain.pem" ]; then
-                openssl req -x509 -nodes -days 1 -newkey rsa:2048 -keyout "$cert_dir/privkey.pem" -out "$cert_dir/fullchain.pem" -subj "/CN=$domain" 2>/dev/null || {
-                  echo "# Placeholder cert for $domain" > "$cert_dir/fullchain.pem"
-                  echo "# Placeholder key for $domain" > "$cert_dir/privkey.pem"
-                }
-              fi
-            done
+            # Create SSL directories (certificates managed separately via SSL workflow)
+            echo "🔒 Setting up SSL directories..."
+            mkdir -p ssl/letsencrypt/live ssl/letsencrypt/archive ssl/www
             
             # Copy scripts
             echo "📋 Setting up scripts..."
@@ -153,7 +122,7 @@ jobs:
             cp -r ~/devops/scripts/* ./scripts/
             
             # Create required directories
-            mkdir -p ssl/letsencrypt ssl/www logs
+            mkdir -p logs
             
             # Set permissions for scripts
             chmod +x scripts/*.sh scripts/certbot/*.sh
@@ -261,9 +230,11 @@ jobs:
                 
                 echo "🎉 Shared infrastructure deployment completed successfully!"
                 echo "📊 Access points:"
-                echo "   - Grafana: https://grafana.cachconnect.co.ke"
+                echo "   - Grafana: https://monitoring.cachconnect.co.ke"
                 echo "   - Prometheus: http://${{ secrets.VPS_HOST }}:9090"
                 echo "   - Alertmanager: http://${{ secrets.VPS_HOST }}:9093"
+                echo ""
+                echo "💡 SSL certificates can be managed using the 'SSL Certificate Management' workflow"
                 ;;
                 
               "restart")
@@ -278,28 +249,7 @@ jobs:
                 echo "✅ Shared services stopped successfully"
                 ;;
                 
-              "ssl-setup")
-                echo "🔒 Setting up SSL certificates..."
-                
-                # Ensure nginx is running for ACME challenge
-                docker-compose -f docker-compose.shared.yml up -d nginx
-                sleep 10
-                
-                # Run SSL setup script
-                ./scripts/setup-ssl.sh false
-                
-                echo "✅ SSL setup completed"
-                ;;
-                
-              "ssl-renew")
-                echo "🔄 Renewing SSL certificates..."
-                
-                # Run SSL renewal script
-                ./scripts/certbot/renew-ssl.sh
-                
-                echo "✅ SSL renewal completed"
-                ;;
-                
+
               *)
                 echo "❌ Unknown action: $ACTION"
                 exit 1

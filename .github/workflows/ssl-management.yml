@@ -1,0 +1,257 @@
+name: SSL Certificate Management
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'SSL Action to perform'
+        required: true
+        default: 'setup'
+        type: choice
+        options:
+          - setup
+          - renew
+          - check-status
+          - force-renew
+      domain:
+        description: 'Specific domain (optional - leave blank for all domains)'
+        required: false
+        type: string
+      dry_run:
+        description: 'Perform dry run (test only)'
+        required: false
+        default: false
+        type: boolean
+
+  schedule:
+    # Auto-renew certificates every 12 hours
+    - cron: '0 */12 * * *'
+
+env:
+  REGISTRY: docker.io
+
+jobs:
+  validate-ssl-request:
+    runs-on: ubuntu-latest
+    outputs:
+      action: ${{ steps.set-action.outputs.action }}
+      domain: ${{ steps.set-action.outputs.domain }}
+      dry_run: ${{ steps.set-action.outputs.dry_run }}
+    steps:
+      - name: Determine SSL action
+        id: set-action
+        run: |
+          # For scheduled runs, default to renewal check
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            ACTION="renew"
+            DRY_RUN="false"
+            DOMAIN=""
+          else
+            ACTION="${{ github.event.inputs.action }}"
+            DRY_RUN="${{ github.event.inputs.dry_run }}"
+            DOMAIN="${{ github.event.inputs.domain }}"
+          fi
+          
+          echo "action=$ACTION" >> $GITHUB_OUTPUT
+          echo "domain=$DOMAIN" >> $GITHUB_OUTPUT
+          echo "dry_run=$DRY_RUN" >> $GITHUB_OUTPUT
+          echo "✅ SSL action: $ACTION, Domain: ${DOMAIN:-'all'}, Dry run: $DRY_RUN"
+
+  ssl-management:
+    runs-on: ubuntu-latest
+    needs: validate-ssl-request
+    environment: shared
+    
+    steps:
+      - name: SSL Certificate Management
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_SSH_PASSWORD }}
+          script: |
+            cd /opt/cach/shared
+            
+            ACTION="${{ needs.validate-ssl-request.outputs.action }}"
+            DOMAIN="${{ needs.validate-ssl-request.outputs.domain }}"
+            DRY_RUN="${{ needs.validate-ssl-request.outputs.dry_run }}"
+            
+            echo "🔒 SSL Certificate Management"
+            echo "Action: $ACTION"
+            echo "Domain: ${DOMAIN:-'all domains'}"
+            echo "Dry run: $DRY_RUN"
+            
+            # Ensure nginx is running for ACME challenges
+            echo "🔍 Ensuring nginx is running..."
+            docker-compose -f docker-compose.shared.yml up -d nginx
+            sleep 10
+            
+            # Check nginx status
+            if ! docker ps | grep -q "cach_nginx.*Up"; then
+              echo "❌ nginx is not running. Starting nginx..."
+              docker-compose -f docker-compose.shared.yml up -d nginx
+              sleep 15
+              if ! docker ps | grep -q "cach_nginx.*Up"; then
+                echo "❌ Failed to start nginx"
+                exit 1
+              fi
+            fi
+            echo "✅ nginx is running"
+            
+            case "$ACTION" in
+              "setup")
+                echo "🔒 Setting up SSL certificates..."
+                
+                if [ "$DRY_RUN" = "true" ]; then
+                  echo "🧪 Performing dry run SSL setup..."
+                  ./scripts/certbot/init-ssl.sh --dry-run
+                else
+                  echo "🚀 Performing actual SSL setup..."
+                  ./scripts/certbot/init-ssl.sh
+                fi
+                
+                if [ $? -eq 0 ]; then
+                  echo "✅ SSL setup completed successfully"
+                  
+                  # Reload nginx to use new certificates
+                  echo "🔄 Reloading nginx with new certificates..."
+                  docker-compose -f docker-compose.shared.yml exec -T nginx nginx -s reload
+                else
+                  echo "❌ SSL setup failed"
+                  exit 1
+                fi
+                ;;
+                
+              "renew")
+                echo "🔄 Renewing SSL certificates..."
+                
+                if [ -n "$DOMAIN" ]; then
+                  echo "🎯 Renewing certificate for specific domain: $DOMAIN"
+                  if [ "$DRY_RUN" = "true" ]; then
+                    docker run --rm -v /opt/cach/shared/ssl/letsencrypt:/etc/letsencrypt -v /opt/cach/shared/ssl/www:/var/www/certbot certbot/certbot renew --dry-run --cert-name "$DOMAIN"
+                  else
+                    docker run --rm -v /opt/cach/shared/ssl/letsencrypt:/etc/letsencrypt -v /opt/cach/shared/ssl/www:/var/www/certbot certbot/certbot renew --cert-name "$DOMAIN"
+                  fi
+                else
+                  echo "🔄 Renewing all certificates..."
+                  if [ "$DRY_RUN" = "true" ]; then
+                    docker run --rm -v /opt/cach/shared/ssl/letsencrypt:/etc/letsencrypt -v /opt/cach/shared/ssl/www:/var/www/certbot certbot/certbot renew --dry-run
+                  else
+                    docker run --rm -v /opt/cach/shared/ssl/letsencrypt:/etc/letsencrypt -v /opt/cach/shared/ssl/www:/var/www/certbot certbot/certbot renew
+                  fi
+                fi
+                
+                if [ $? -eq 0 ]; then
+                  echo "✅ SSL renewal completed successfully"
+                  if [ "$DRY_RUN" != "true" ]; then
+                    # Reload nginx to use renewed certificates
+                    echo "🔄 Reloading nginx with renewed certificates..."
+                    docker-compose -f docker-compose.shared.yml exec -T nginx nginx -s reload
+                  fi
+                else
+                  echo "❌ SSL renewal failed"
+                  exit 1
+                fi
+                ;;
+                
+              "force-renew")
+                echo "⚡ Force renewing SSL certificates..."
+                
+                if [ -n "$DOMAIN" ]; then
+                  echo "🎯 Force renewing certificate for domain: $DOMAIN"
+                  if [ "$DRY_RUN" = "true" ]; then
+                    docker run --rm -v /opt/cach/shared/ssl/letsencrypt:/etc/letsencrypt -v /opt/cach/shared/ssl/www:/var/www/certbot certbot/certbot renew --dry-run --force-renewal --cert-name "$DOMAIN"
+                  else
+                    docker run --rm -v /opt/cach/shared/ssl/letsencrypt:/etc/letsencrypt -v /opt/cach/shared/ssl/www:/var/www/certbot certbot/certbot renew --force-renewal --cert-name "$DOMAIN"
+                  fi
+                else
+                  echo "⚡ Force renewing all certificates..."
+                  if [ "$DRY_RUN" = "true" ]; then
+                    docker run --rm -v /opt/cach/shared/ssl/letsencrypt:/etc/letsencrypt -v /opt/cach/shared/ssl/www:/var/www/certbot certbot/certbot renew --dry-run --force-renewal
+                  else
+                    docker run --rm -v /opt/cach/shared/ssl/letsencrypt:/etc/letsencrypt -v /opt/cach/shared/ssl/www:/var/www/certbot certbot/certbot renew --force-renewal
+                  fi
+                fi
+                
+                if [ $? -eq 0 ]; then
+                  echo "✅ SSL force renewal completed successfully"
+                  if [ "$DRY_RUN" != "true" ]; then
+                    # Reload nginx to use renewed certificates
+                    echo "🔄 Reloading nginx with renewed certificates..."
+                    docker-compose -f docker-compose.shared.yml exec -T nginx nginx -s reload
+                  fi
+                else
+                  echo "❌ SSL force renewal failed"
+                  exit 1
+                fi
+                ;;
+                
+              "check-status")
+                echo "🔍 Checking SSL certificate status..."
+                
+                # List all certificates
+                echo "📋 Current certificates:"
+                docker run --rm -v /opt/cach/shared/ssl/letsencrypt:/etc/letsencrypt certbot/certbot certificates
+                
+                # Check expiration dates
+                echo "📅 Certificate expiration check:"
+                cert_dirs="/opt/cach/shared/ssl/letsencrypt/live/*"
+                for cert_dir in $cert_dirs; do
+                  if [ -d "$cert_dir" ]; then
+                    domain=$(basename "$cert_dir")
+                    cert_file="$cert_dir/fullchain.pem"
+                    if [ -f "$cert_file" ]; then
+                      echo "🔍 Checking $domain..."
+                      expiry=$(openssl x509 -enddate -noout -in "$cert_file" 2>/dev/null | cut -d= -f2)
+                      if [ $? -eq 0 ]; then
+                        echo "   📅 Expires: $expiry"
+                        # Check if expires in next 30 days
+                        expiry_epoch=$(date -d "$expiry" +%s 2>/dev/null)
+                        current_epoch=$(date +%s)
+                        days_until_expiry=$(( (expiry_epoch - current_epoch) / 86400 ))
+                        if [ $days_until_expiry -lt 30 ]; then
+                          echo "   ⚠️  Certificate expires in $days_until_expiry days!"
+                        else
+                          echo "   ✅ Certificate is valid for $days_until_expiry days"
+                        fi
+                      else
+                        echo "   ❌ Invalid certificate file"
+                      fi
+                    else
+                      echo "   ❌ Certificate file not found"
+                    fi
+                  fi
+                done
+                ;;
+                
+              *)
+                echo "❌ Unknown SSL action: $ACTION"
+                exit 1
+                ;;
+            esac
+            
+            echo "🎉 SSL management operation completed successfully!"
+
+  notification:
+    runs-on: ubuntu-latest
+    needs: [validate-ssl-request, ssl-management]
+    if: failure() || (github.event_name == 'schedule' && needs.validate-ssl-request.outputs.action == 'renew')
+    
+    steps:
+      - name: Notify SSL Status
+        run: |
+          ACTION="${{ needs.validate-ssl-request.outputs.action }}"
+          STATUS="${{ job.status }}"
+          
+          echo "📧 SSL Management Notification"
+          echo "Action: $ACTION"
+          echo "Status: $STATUS"
+          echo "Timestamp: $(date)"
+          
+          # Here you could add email notification, Slack webhook, etc.
+          # For now, just log the result
+          if [ "$STATUS" = "failure" ]; then
+            echo "❌ SSL management failed - manual intervention may be required"
+          else
+            echo "✅ SSL management completed successfully"
+          fi
