@@ -144,7 +144,7 @@ After successful deployment, these services will be available:
 - **Agents Staging**: https://agents.staging.cachconnect.co.ke
 - **Distributors Production**: https://distributors.cachconnect.co.ke
 - **Distributors Staging**: https://distributors.staging.cachconnect.co.ke
-- **Business Production**: https://business.cachconnect.co.ke
+- **Business Production**: https://businesses.cachconnect.co.ke
 - **Business Staging**: https://business.staging.cachconnect.co.ke
 - **Lenders Production**: https://lenders.cachconnect.co.ke
 - **Lenders Staging**: https://lenders.staging.cachconnect.co.ke

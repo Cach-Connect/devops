@@ -10,7 +10,7 @@ Production:
 - api.cachconnect.co.ke          → API (port 3001)
 - agents.cachconnect.co.ke       → Agents App (port 3011)
 - distributors.cachconnect.co.ke → Distributors App (port 3021)
-- business.cachconnect.co.ke     → Business App (port 3031)
+- businesses.cachconnect.co.ke     → Business App (port 3031)
 - admin.cachconnect.co.ke        → Admin App (port 3041)
 - lenders.cachconnect.co.ke      → Lenders App (port 3051)
 
@@ -18,7 +18,7 @@ Staging:
 - api.staging.cachconnect.co.ke          → API (port 3002)
 - agents.staging.cachconnect.co.ke       → Agents App (port 3012)
 - distributors.staging.cachconnect.co.ke → Distributors App (port 3022)
-- business.staging.cachconnect.co.ke     → Business App (port 3032)
+- businesses.staging.cachconnect.co.ke     → Business App (port 3032)
 - admin.staging.cachconnect.co.ke        → Admin App (port 3042)
 - lenders.staging.cachconnect.co.ke      → Lenders App (port 3052)
 
@@ -26,7 +26,7 @@ Sandbox:
 - api.sandbox.cachconnect.co.ke          → API (port 3003)
 - agents.sandbox.cachconnect.co.ke       → Agents App (port 3013)
 - distributors.sandbox.cachconnect.co.ke → Distributors App (port 3023)
-- business.sandbox.cachconnect.co.ke     → Business App (port 3033)
+- businesses.sandbox.cachconnect.co.ke     → Business App (port 3033)
 - admin.sandbox.cachconnect.co.ke        → Admin App (port 3043)
 - lenders.sandbox.cachconnect.co.ke      → Lenders App (port 3053)
 
