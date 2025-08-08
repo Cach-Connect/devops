@@ -107,10 +107,12 @@ jobs:
             fi
             chmod -R 755 monitoring/grafana/dashboards
             
-            # Copy nginx configuration
-            echo "📋 Setting up nginx configuration..."
-            rm -rf nginx && mkdir -p nginx
-            cp -r ~/devops/nginx/* ./nginx/
+            # Copy nginx configuration (HTTP-only for initial deployment)
+            echo "📋 Setting up nginx configuration (HTTP-only)..."
+            rm -rf nginx && mkdir -p nginx/conf.d
+            cp ~/devops/nginx/nginx-http.conf ./nginx/nginx.conf
+            cp ~/devops/nginx/conf.d/cach-http.conf ./nginx/conf.d/cach.conf
+            cp ~/devops/nginx/conf.d/default.conf ./nginx/conf.d/default.conf
             
             # Create SSL directories (certificates managed separately via SSL workflow)
             echo "🔒 Setting up SSL directories..."
@@ -229,12 +231,17 @@ jobs:
                 fi
                 
                 echo "🎉 Shared infrastructure deployment completed successfully!"
-                echo "📊 Access points:"
-                echo "   - Grafana: https://monitoring.cachconnect.co.ke"
+                echo "📊 Access points (HTTP only - SSL can be enabled separately):"
+                echo "   - Website: http://cachconnect.co.ke"
+                echo "   - API: http://api.cachconnect.co.ke"
+                echo "   - Admin: http://admin.cachconnect.co.ke"
+                echo "   - Agents: http://agents.cachconnect.co.ke"
+                echo "   - Grafana: http://monitoring.cachconnect.co.ke"
+                echo "   - Storage: http://storage.cachconnect.co.ke"
                 echo "   - Prometheus: http://${{ secrets.VPS_HOST }}:9090"
                 echo "   - Alertmanager: http://${{ secrets.VPS_HOST }}:9093"
                 echo ""
-                echo "💡 SSL certificates can be managed using the 'SSL Certificate Management' workflow"
+                echo "🔒 To enable HTTPS, run the 'SSL Certificate Management' workflow with action 'setup'"
                 ;;
                 
               "restart")

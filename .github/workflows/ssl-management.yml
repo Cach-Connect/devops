@@ -13,6 +13,7 @@ on:
           - renew
           - check-status
           - force-renew
+          - disable-https
       domain:
         description: 'Specific domain (optional - leave blank for all domains)'
         required: false
@@ -113,9 +114,23 @@ jobs:
                 if [ $? -eq 0 ]; then
                   echo "✅ SSL setup completed successfully"
                   
-                  # Reload nginx to use new certificates
-                  echo "🔄 Reloading nginx with new certificates..."
+                  # Switch to HTTPS configuration
+                  echo "🔄 Switching to HTTPS nginx configuration..."
+                  cp ~/devops/nginx/nginx.conf ./nginx/nginx.conf
+                  cp ~/devops/nginx/conf.d/cach.conf ./nginx/conf.d/cach.conf
+                  
+                  # Reload nginx with HTTPS configuration
+                  echo "🔄 Reloading nginx with HTTPS configuration and certificates..."
                   docker-compose -f docker-compose.shared.yml exec -T nginx nginx -s reload
+                  
+                  echo "🎉 HTTPS is now enabled for all services!"
+                  echo "📊 HTTPS Access points:"
+                  echo "   - Website: https://cachconnect.co.ke"
+                  echo "   - API: https://api.cachconnect.co.ke"
+                  echo "   - Admin: https://admin.cachconnect.co.ke"
+                  echo "   - Agents: https://agents.cachconnect.co.ke"
+                  echo "   - Grafana: https://monitoring.cachconnect.co.ke"
+                  echo "   - Storage: https://storage.cachconnect.co.ke"
                 else
                   echo "❌ SSL setup failed"
                   exit 1
@@ -222,6 +237,28 @@ jobs:
                     fi
                   fi
                 done
+                ;;
+                
+              "disable-https")
+                echo "🔄 Disabling HTTPS and switching back to HTTP-only configuration..."
+                
+                # Switch back to HTTP-only configuration
+                echo "📋 Switching to HTTP-only nginx configuration..."
+                cp ~/devops/nginx/nginx-http.conf ./nginx/nginx.conf
+                cp ~/devops/nginx/conf.d/cach-http.conf ./nginx/conf.d/cach.conf
+                
+                # Reload nginx with HTTP-only configuration
+                echo "🔄 Reloading nginx with HTTP-only configuration..."
+                docker-compose -f docker-compose.shared.yml exec -T nginx nginx -s reload
+                
+                echo "✅ HTTPS disabled - services now running on HTTP only"
+                echo "📊 HTTP Access points:"
+                echo "   - Website: http://cachconnect.co.ke"
+                echo "   - API: http://api.cachconnect.co.ke"
+                echo "   - Admin: http://admin.cachconnect.co.ke"
+                echo "   - Agents: http://agents.cachconnect.co.ke"
+                echo "   - Grafana: http://monitoring.cachconnect.co.ke"
+                echo "   - Storage: http://storage.cachconnect.co.ke"
                 ;;
                 
               *)
