@@ -176,18 +176,40 @@ jobs:
               "deploy")
                 echo "🚀 Deploying shared infrastructure..."
                 
-                # Test nginx configuration syntax inside the compose service (ensures Docker DNS works)
-                echo "🔍 Testing nginx configuration..."
-                docker-compose -f docker-compose.shared.yml up -d nginx
-                sleep 5
-                docker-compose -f docker-compose.shared.yml exec -T nginx nginx -t || {
-                  echo "❌ nginx configuration test failed"
+                # Clean up any existing containers to avoid conflicts
+                echo "🧹 Cleaning up existing shared infrastructure..."
+                docker-compose -f docker-compose.shared.yml down --remove-orphans 2>/dev/null || true
+                
+                # Test nginx configuration syntax first without starting services
+                echo "🔍 Testing nginx configuration syntax..."
+                docker run --rm -v $(pwd)/nginx/nginx.conf:/etc/nginx/nginx.conf -v $(pwd)/nginx/conf.d:/etc/nginx/conf.d nginx:1.25-alpine nginx -t || {
+                  echo "❌ nginx configuration syntax test failed"
                   echo "📋 nginx configuration files:"
                   ls -la nginx/
                   ls -la nginx/conf.d/
+                  echo "📄 nginx.conf content:"
+                  head -20 nginx/nginx.conf
+                  echo "📄 cach.conf content:"
+                  head -20 nginx/conf.d/cach.conf
                   exit 1
                 }
-                echo "✅ nginx configuration is valid"
+                echo "✅ nginx configuration syntax is valid"
+                
+                # Start nginx first to ensure it's ready for service connections
+                echo "🚀 Starting nginx..."
+                docker-compose -f docker-compose.shared.yml up -d nginx
+                sleep 10
+                
+                # Verify nginx started successfully
+                if ! docker ps | grep -q "cach_nginx.*Up"; then
+                  echo "❌ nginx failed to start"
+                  echo "📋 nginx container logs:"
+                  docker logs cach_nginx --tail=20 2>/dev/null || echo "Could not get nginx logs"
+                  echo "📋 All containers status:"
+                  docker ps -a | grep nginx
+                  exit 1
+                fi
+                echo "✅ nginx started successfully"
                 
                 # Pull latest images
                 echo "🐳 Pulling latest Docker images..."
@@ -201,33 +223,74 @@ jobs:
                 echo "⏳ Waiting for services to be ready..."
                 sleep 30
                 
-                # Check service health
+                # Check service health with retries
                 echo "🔍 Checking service health..."
                 services=("prometheus" "grafana" "loki" "alertmanager" "nginx")
-                all_healthy=true
+                max_retries=6
+                retry_delay=10
                 
                 for service in "${services[@]}"; do
-                  if docker ps --filter "name=cach_$service" --filter "status=running" | grep -q "cach_$service"; then
-                    echo "✅ $service is running"
-                  else
-                    echo "❌ $service is not running"
+                  echo "🔍 Checking $service..."
+                  retry_count=0
+                  service_healthy=false
+                  
+                  while [ $retry_count -lt $max_retries ]; do
+                    if docker ps --filter "name=cach_$service" --filter "status=running" | grep -q "cach_$service"; then
+                      echo "✅ $service is running"
+                      service_healthy=true
+                      break
+                    else
+                      retry_count=$((retry_count + 1))
+                      if [ $retry_count -lt $max_retries ]; then
+                        echo "⏳ $service not ready, retrying in ${retry_delay}s... (attempt $retry_count/$max_retries)"
+                        sleep $retry_delay
+                      fi
+                    fi
+                  done
+                  
+                  if [ "$service_healthy" = false ]; then
+                    echo "❌ $service failed to start after $max_retries attempts"
+                    echo "🔍 Debugging $service:"
+                    echo "Container status:"
+                    docker ps -a | grep "cach_$service" || echo "No $service container found"
+                    echo "Container logs:"
+                    docker logs "cach_$service" --tail=20 2>/dev/null || echo "Could not get $service logs"
+                    
                     if [ "$service" = "nginx" ]; then
-                      echo "🔍 Debugging nginx container:"
-                      echo "All containers with 'nginx' in name:"
-                      docker ps -a | grep nginx || echo "No nginx containers found"
-                      echo "nginx container logs:"
-                      docker logs cach_nginx --tail=20 2>/dev/null || echo "Could not get nginx logs"
-                      echo "Testing nginx config syntax:"
+                      echo "🔍 Testing nginx config:"
                       docker exec cach_nginx nginx -t 2>/dev/null || echo "Could not test nginx config"
                     fi
-                    all_healthy=false
+                    
+                    echo "❌ Deployment failed due to $service not starting"
+                    docker-compose -f docker-compose.shared.yml logs --tail=50
+                    exit 1
                   fi
                 done
                 
-                if [ "$all_healthy" = false ]; then
-                  echo "❌ Some services failed to start. Checking logs..."
-                  docker-compose -f docker-compose.shared.yml logs --tail=50
-                  exit 1
+                echo "✅ All services are healthy and running"
+                
+                # Test HTTP endpoints to verify they're working
+                echo "🔍 Testing HTTP endpoints..."
+                
+                # Test nginx health
+                if curl -f -s http://localhost/ > /dev/null; then
+                  echo "✅ nginx responding to HTTP requests"
+                else
+                  echo "⚠️  nginx not responding to HTTP requests (may be normal if no default handler)"
+                fi
+                
+                # Test Grafana (monitoring)
+                if curl -f -s http://localhost:3000/api/health > /dev/null; then
+                  echo "✅ Grafana endpoint accessible"
+                else
+                  echo "⚠️  Grafana endpoint not accessible yet"
+                fi
+                
+                # Test Prometheus
+                if curl -f -s http://localhost:9090/-/healthy > /dev/null; then
+                  echo "✅ Prometheus endpoint accessible"
+                else
+                  echo "⚠️  Prometheus endpoint not accessible yet"
                 fi
                 
                 echo "🎉 Shared infrastructure deployment completed successfully!"
