@@ -114,10 +114,10 @@ jobs:
                 if [ $? -eq 0 ]; then
                   echo "✅ SSL setup completed successfully"
                   
-                  # Switch to HTTPS configuration
-                  echo "🔄 Switching to HTTPS nginx configuration..."
+                  # Switch to HTTPS configuration with application services
+                  echo "🔄 Switching to HTTPS nginx configuration with application services..."
                   cp ~/devops/nginx/nginx.conf ./nginx/nginx.conf
-                  cp ~/devops/nginx/conf.d/cach.conf ./nginx/conf.d/cach.conf
+                  cp ~/devops/nginx/conf.d/cach-http.conf ./nginx/conf.d/cach.conf
                   
                   # Reload nginx with HTTPS configuration
                   echo "🔄 Reloading nginx with HTTPS configuration and certificates..."
@@ -242,10 +242,10 @@ jobs:
               "disable-https")
                 echo "🔄 Disabling HTTPS and switching back to HTTP-only configuration..."
                 
-                # Switch back to HTTP-only configuration
-                echo "📋 Switching to HTTP-only nginx configuration..."
+                # Switch back to flexible HTTP-only configuration
+                echo "📋 Switching to flexible HTTP-only nginx configuration..."
                 cp ~/devops/nginx/nginx-http.conf ./nginx/nginx.conf
-                cp ~/devops/nginx/conf.d/cach-http.conf ./nginx/conf.d/cach.conf
+                cp ~/devops/nginx/conf.d/cach-flexible.conf ./nginx/conf.d/cach.conf
                 
                 # Reload nginx with HTTP-only configuration
                 echo "🔄 Reloading nginx with HTTP-only configuration..."

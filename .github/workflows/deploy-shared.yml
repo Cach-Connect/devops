@@ -107,11 +107,11 @@ jobs:
             fi
             chmod -R 755 monitoring/grafana/dashboards
             
-            # Copy nginx configuration (HTTP-only for initial deployment)
-            echo "📋 Setting up nginx configuration (HTTP-only)..."
+            # Copy nginx configuration (flexible - handles all services with graceful fallbacks)
+            echo "📋 Setting up nginx configuration (flexible for all services)..."
             rm -rf nginx && mkdir -p nginx/conf.d
             cp ~/devops/nginx/nginx-http.conf ./nginx/nginx.conf
-            cp ~/devops/nginx/conf.d/cach-http.conf ./nginx/conf.d/cach.conf
+            cp ~/devops/nginx/conf.d/cach-flexible.conf ./nginx/conf.d/cach.conf
             cp ~/devops/nginx/conf.d/default.conf ./nginx/conf.d/default.conf
             
             # Create SSL directories (certificates managed separately via SSL workflow)
@@ -294,17 +294,22 @@ jobs:
                 fi
                 
                 echo "🎉 Shared infrastructure deployment completed successfully!"
-                echo "📊 Access points (HTTP only - SSL can be enabled separately):"
-                echo "   - Website: http://cachconnect.co.ke"
-                echo "   - API: http://api.cachconnect.co.ke"
-                echo "   - Admin: http://admin.cachconnect.co.ke"
-                echo "   - Agents: http://agents.cachconnect.co.ke"
-                echo "   - Grafana: http://monitoring.cachconnect.co.ke"
-                echo "   - Storage: http://storage.cachconnect.co.ke"
+                echo "📊 All service access points (HTTP with graceful fallbacks):"
+                echo "   - Website: http://cachconnect.co.ke (fallback if service not running)"
+                echo "   - API: http://api.cachconnect.co.ke (fallback if service not running)"
+                echo "   - Admin: http://admin.cachconnect.co.ke (fallback if service not running)"
+                echo "   - Agents: http://agents.cachconnect.co.ke (fallback if service not running)"
+                echo "   - Storage: http://storage.cachconnect.co.ke (fallback if service not running)"
+                echo "   - Grafana (Monitoring): http://monitoring.cachconnect.co.ke"
                 echo "   - Prometheus: http://${{ secrets.VPS_HOST }}:9090"
                 echo "   - Alertmanager: http://${{ secrets.VPS_HOST }}:9093"
+                echo "   - Loki (Logs): http://${{ secrets.VPS_HOST }}:3100"
                 echo ""
-                echo "🔒 To enable HTTPS, run the 'SSL Certificate Management' workflow with action 'setup'"
+                echo "📋 Service behavior:"
+                echo "   - Working services: Respond normally"
+                echo "   - Missing services: Show 'starting up' message with monitoring link"
+                echo "   - Deploy individual services when ready using their respective workflows"
+                echo "   - Run 'SSL Certificate Management' to enable HTTPS for all services"
                 ;;
                 
               "restart")
