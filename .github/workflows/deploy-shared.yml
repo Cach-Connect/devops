@@ -178,20 +178,6 @@ jobs:
                 echo "🧹 Cleaning up existing shared infrastructure..."
                 docker-compose -f docker-compose.shared.yml down --remove-orphans 2>/dev/null || true
                 
-                # Test nginx configuration syntax first without starting services
-                echo "🔍 Testing nginx configuration syntax..."
-                docker run --rm -v $(pwd)/nginx/nginx.conf:/etc/nginx/nginx.conf -v $(pwd)/nginx/shared.conf:/etc/nginx/conf.d/default.conf nginx:1.25-alpine nginx -t || {
-                  echo "❌ nginx configuration syntax test failed"
-                  echo "📋 nginx configuration files:"
-                  ls -la nginx/
-                  echo "📄 nginx.conf content:"
-                  head -20 nginx/nginx.conf
-                  echo "📄 shared.conf content:"
-                  head -20 nginx/shared.conf
-                  exit 1
-                }
-                echo "✅ nginx configuration syntax is valid"
-                
                 # Start nginx first to ensure it's ready for service connections
                 echo "🚀 Starting nginx..."
                 docker-compose -f docker-compose.shared.yml up -d nginx
