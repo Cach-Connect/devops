@@ -108,9 +108,21 @@ jobs:
             chmod -R 755 monitoring/grafana/dashboards
             
             # Copy nginx configuration (shared infrastructure only)
-            echo "📋 Setting up nginx configuration (shared infrastructure)..."
+            echo "📋 Setting up nginx configuration (all environments)..."
             rm -rf nginx && mkdir -p nginx
             cp ~/devops/nginx/nginx-http.conf ./nginx/nginx.conf
+            
+            # Copy all environment configurations
+            echo "📋 Loading production configurations..."
+            cp ~/devops/nginx/conf.d/production-http.conf ./nginx/production.conf
+            
+            echo "📋 Loading staging configurations..."
+            cp ~/devops/nginx/conf.d/staging-http.conf ./nginx/staging.conf
+            
+            echo "📋 Loading sandbox configurations..."
+            cp ~/devops/nginx/conf.d/sandbox-http.conf ./nginx/sandbox.conf
+            
+            echo "📋 Loading monitoring configurations..."
             cp ~/devops/nginx/conf.d/shared-http.conf ./nginx/shared.conf
             
             # Create SSL directories (certificates managed separately via SSL workflow)
@@ -138,6 +150,9 @@ jobs:
               "monitoring/grafana/provisioning/datasources/datasources.yml"
               "monitoring/grafana/dashboards/cach-overview.json"
               "nginx/nginx.conf"
+              "nginx/production.conf"
+              "nginx/staging.conf"
+              "nginx/sandbox.conf"
               "nginx/shared.conf"
               "docker-compose.shared.yml"
             )
@@ -287,16 +302,24 @@ jobs:
                 fi
                 
                 echo "🎉 Shared infrastructure deployment completed successfully!"
-                echo "📊 Shared infrastructure access points:"
-                echo "   - Grafana (Monitoring): http://monitoring.cachconnect.co.ke"
+                echo "📊 Nginx is configured for all environments:"
+                echo "   🏭 Production: cachconnect.co.ke, api.cachconnect.co.ke, admin.cachconnect.co.ke, etc."
+                echo "   🧪 Staging: staging.cachconnect.co.ke, api.staging.cachconnect.co.ke, etc."
+                echo "   🔬 Sandbox: sandbox.cachconnect.co.ke, api.sandbox.cachconnect.co.ke, etc."
+                echo "   📊 Monitoring: monitoring.cachconnect.co.ke"
+                echo ""
+                echo "📊 Direct service access (development only):"
                 echo "   - Prometheus: http://${{ secrets.VPS_HOST }}:9090"
                 echo "   - Alertmanager: http://${{ secrets.VPS_HOST }}:9093"
                 echo "   - Loki (Logs): http://${{ secrets.VPS_HOST }}:3100"
                 echo ""
+                echo "⚠️  Domains will show 'service starting up' until you deploy the respective environments"
                 echo "📋 Next steps:"
-                echo "   - Deploy application services using their respective environment workflows"
-                echo "   - All unknown domains and IP access are blocked (return 444)"
+                echo "   - Deploy production services to activate: cachconnect.co.ke, api.cachconnect.co.ke, etc."
+                echo "   - Deploy staging services to activate: staging.cachconnect.co.ke, etc."
+                echo "   - Deploy sandbox services to activate: sandbox.cachconnect.co.ke, etc."
                 echo "   - Run 'SSL Certificate Management' to enable HTTPS"
+                echo "   - All unknown domains and IP access are blocked (return 444)"
                 ;;
                 
               "restart")
