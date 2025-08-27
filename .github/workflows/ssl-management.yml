@@ -71,7 +71,46 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_SSH_PASSWORD }}
           script: |
-            cd /opt/cach/shared
+            cd ~
+
+            # Get latest devops configuration
+            echo "📥 Downloading latest devops configuration..."
+            if [ -d "devops" ]; then
+              echo "Devops directory exists, updating..."
+              cd devops
+              git pull origin main
+            else
+              echo "Devops directory doesn't exist, cloning..."
+              git clone https://github.com/Cach-Connect/devops.git devops
+              cd devops
+            fi
+
+            # Create shared deployment directory if it doesn't exist
+            cd /opt/cach || (mkdir -p /opt/cach && cd /opt/cach)
+            
+            if [ ! -d "shared" ]; then
+              mkdir -p shared
+            fi
+            cd shared
+
+            # Copy latest scripts to ensure we have the updated SSL script
+            echo "📋 Updating SSL scripts..."
+            rm -rf scripts && mkdir -p scripts
+            cp -r ~/devops/scripts/* ./scripts/
+            chmod +x scripts/*.sh scripts/certbot/*.sh
+
+            # Copy latest nginx configuration structure
+            echo "📋 Updating nginx configuration..."
+            rm -rf nginx && mkdir -p nginx/conf.d
+            cp -r ~/devops/nginx/conf.d/* ./nginx/conf.d/
+
+            # Copy docker-compose file
+            echo "📋 Updating docker-compose configuration..."
+            cp ~/devops/docker-compose/docker-compose.shared.yml .
+
+            # Ensure SSL directories exist
+            echo "🔒 Setting up SSL directories..."
+            mkdir -p ssl/letsencrypt/live ssl/letsencrypt/archive ssl/www
             
             ACTION="${{ needs.validate-ssl-request.outputs.action }}"
             DOMAIN="${{ needs.validate-ssl-request.outputs.domain }}"
@@ -223,6 +262,8 @@ jobs:
                       cp ./nginx/conf.d/sandbox-https.conf ./nginx/conf.d-https/
                       ;;
                   esac
+                  
+                  echo "✅ HTTPS configurations prepared for $ENV_TYPE environment"
                   
                   # Backup current HTTP config directory
                   echo "💾 Backing up current HTTP configuration..."
