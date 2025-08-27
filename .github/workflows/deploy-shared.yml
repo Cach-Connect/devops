@@ -109,21 +109,21 @@ jobs:
             
             # Copy nginx configuration (shared infrastructure only)
             echo "📋 Setting up nginx configuration (all environments)..."
-            rm -rf nginx && mkdir -p nginx
+            rm -rf nginx && mkdir -p nginx/conf.d
             cp ~/devops/nginx/nginx-http.conf ./nginx/nginx.conf
-            
-            # Copy all environment configurations
+
+            # Copy all environment configurations to proper conf.d directory
             echo "📋 Loading production configurations..."
-            cp ~/devops/nginx/conf.d/production-http.conf ./nginx/production.conf
-            
+            cp ~/devops/nginx/conf.d/production-http.conf ./nginx/conf.d/
+
             echo "📋 Loading staging configurations..."
-            cp ~/devops/nginx/conf.d/staging-http.conf ./nginx/staging.conf
-            
+            cp ~/devops/nginx/conf.d/staging-http.conf ./nginx/conf.d/
+
             echo "📋 Loading sandbox configurations..."
-            cp ~/devops/nginx/conf.d/sandbox-http.conf ./nginx/sandbox.conf
-            
+            cp ~/devops/nginx/conf.d/sandbox-http.conf ./nginx/conf.d/
+
             echo "📋 Loading monitoring configurations..."
-            cp ~/devops/nginx/conf.d/shared-http.conf ./nginx/shared.conf
+            cp ~/devops/nginx/conf.d/shared-http.conf ./nginx/conf.d/
             
             # Create SSL directories (certificates managed separately via SSL workflow)
             echo "🔒 Setting up SSL directories..."

@@ -230,54 +230,97 @@ jobs:
                   # Switch to HTTPS configuration based on current environment
                   echo "🔄 Switching to HTTPS nginx configuration..."
                   
-                  # Check which environment is currently deployed
+                  # Detect all running environments and enable HTTPS for all
+                  DETECTED_ENVS=""
                   if docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q "production"; then
-                    echo "Detected production environment - enabling HTTPS for production"
-                    ENV_TYPE="production"
-                  elif docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q "staging"; then
-                    echo "Detected staging environment - enabling HTTPS for staging" 
-                    ENV_TYPE="staging"
-                  elif docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q "sandbox"; then
-                    echo "Detected sandbox environment - enabling HTTPS for sandbox"
-                    ENV_TYPE="sandbox" 
-                  else
-                    echo "No specific environment detected - defaulting to shared monitoring"
-                    ENV_TYPE="shared"
+                    DETECTED_ENVS="$DETECTED_ENVS production"
+                    echo "Detected production environment"
                   fi
+                  if docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q "staging"; then
+                    DETECTED_ENVS="$DETECTED_ENVS staging"
+                    echo "Detected staging environment"
+                  fi
+                  if docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q "sandbox"; then
+                    DETECTED_ENVS="$DETECTED_ENVS sandbox"
+                    echo "Detected sandbox environment"
+                  fi
+
+                  echo "Enabling HTTPS for environments:$DETECTED_ENVS"
+
+                  # Create temporary nginx config directory with HTTPS configs
+                  echo "📁 Setting up HTTPS nginx configuration for detected environments..."
+                  mkdir -p ./nginx/conf.d-https
+
+                  # Always copy shared config
+                  cp ./nginx/conf.d/shared-https.conf ./nginx/conf.d-https/
+
+                  # Copy configs for each detected environment
+                  for env in $DETECTED_ENVS; do
+                    case "$env" in
+                      "production")
+                        cp ./nginx/conf.d/production-https.conf ./nginx/conf.d-https/
+                        ;;
+                      "staging") 
+                        cp ./nginx/conf.d/staging-https.conf ./nginx/conf.d-https/
+                        ;;
+                      "sandbox")
+                        cp ./nginx/conf.d/sandbox-https.conf ./nginx/conf.d-https/
+                        ;;
+                    esac
+                  done
                   
                   # Create temporary nginx config directory with HTTPS configs
                   echo "📁 Setting up HTTPS nginx configuration for $ENV_TYPE environment..."
-                  mkdir -p ./nginx/conf.d-https
                   
-                  # Copy HTTPS configurations based on environment
-                  cp ./nginx/conf.d/shared-https.conf ./nginx/conf.d-https/
+                  # Backup current HTTP config directory first (before any changes)
+                  echo "💾 Backing up current HTTP configuration..."
+                  sudo cp -r ./nginx/conf.d ./nginx/conf.d-http-backup
+                  
+                  # Create a new temp directory for HTTPS configs
+                  mkdir -p ./nginx/conf.d-https-temp
+                  
+                  # Copy HTTPS configurations based on environment (with error checking)
+                  echo "📋 Copying HTTPS configurations..."
+                  if [ -f "./nginx/conf.d/shared-https.conf" ]; then
+                    cp ./nginx/conf.d/shared-https.conf ./nginx/conf.d-https-temp/
+                  else
+                    echo "⚠️  shared-https.conf not found, using HTTP version as fallback"
+                    # Use HTTP version as fallback if HTTPS doesn't exist
+                    if [ -f "./nginx/conf.d/shared-http.conf" ]; then
+                      cp ./nginx/conf.d/shared-http.conf ./nginx/conf.d-https-temp/
+                    fi
+                  fi
+                  
                   case "$ENV_TYPE" in
                     "production")
-                      cp ./nginx/conf.d/production-https.conf ./nginx/conf.d-https/
+                      if [ -f "./nginx/conf.d/production-https.conf" ]; then
+                        cp ./nginx/conf.d/production-https.conf ./nginx/conf.d-https-temp/
+                      else
+                        echo "⚠️  production-https.conf not found, keeping HTTP config"
+                        # Copy HTTP config as fallback
+                        cp ./nginx/conf.d/production-http.conf ./nginx/conf.d-https-temp/
+                      fi
                       ;;
                     "staging") 
-                      cp ./nginx/conf.d/staging-https.conf ./nginx/conf.d-https/
+                      if [ -f "./nginx/conf.d/staging-https.conf" ]; then
+                        cp ./nginx/conf.d/staging-https.conf ./nginx/conf.d-https-temp/
+                      else
+                        echo "⚠️  staging-https.conf not found, keeping HTTP config"
+                        cp ./nginx/conf.d/staging-http.conf ./nginx/conf.d-https-temp/
+                      fi
                       ;;
                     "sandbox")
-                      cp ./nginx/conf.d/sandbox-https.conf ./nginx/conf.d-https/
+                      if [ -f "./nginx/conf.d/sandbox-https.conf" ]; then
+                        cp ./nginx/conf.d/sandbox-https.conf ./nginx/conf.d-https-temp/
+                      else
+                        echo "⚠️  sandbox-https.conf not found, keeping HTTP config"
+                        cp ./nginx/conf.d/sandbox-http.conf ./nginx/conf.d-https-temp/
+                      fi
                       ;;
                   esac
                   
-                  echo "✅ HTTPS configurations prepared for $ENV_TYPE environment"
-                  
-                  # Backup current HTTP config directory
-                  echo "💾 Backing up current HTTP configuration..."
-                  cp -r ./nginx/conf.d ./nginx/conf.d-http-backup
-                  
-                  # Replace with HTTPS configurations
-                  echo "🔄 Switching to HTTPS configurations..."
-                  rm -rf ./nginx/conf.d
-                  mv ./nginx/conf.d-https ./nginx/conf.d
-                  
-                  # Restart nginx container to load new configurations
-                  echo "🔄 Restarting nginx with HTTPS configuration and certificates..."
-                  
-                  # Use same directory detection logic
+                  # Use Docker to stop nginx and switch configs (avoids permission issues)
+                  echo "🔄 Stopping nginx to switch configurations..."
                   if [ -d "docker-compose" ]; then
                     cd docker-compose
                     COMPOSE_FILE="docker-compose.shared.yml"
@@ -286,12 +329,42 @@ jobs:
                   fi
                   
                   docker-compose -f $COMPOSE_FILE stop nginx
-                  sleep 5
-                  docker-compose -f $COMPOSE_FILE up -d nginx
                   
                   # Return to original directory if we changed it
                   if [ -d "../docker-compose" ]; then
                     cd ..
+                  fi
+                  
+                  # Now switch configs using sudo to handle permissions
+                  echo "🔄 Switching to HTTPS configurations..."
+                  sudo rm -rf ./nginx/conf.d
+                  sudo mv ./nginx/conf.d-https-temp ./nginx/conf.d
+                  
+                  # Start nginx with new HTTPS configuration
+                  echo "🔄 Starting nginx with HTTPS configuration and certificates..."
+                  
+                  # nginx is already stopped from above, just start it
+                  docker-compose -f $COMPOSE_FILE up -d nginx
+                  
+                  # Wait for nginx to start
+                  sleep 10
+                  
+                  # Verify nginx started successfully with HTTPS
+                  echo "🔍 Verifying nginx HTTPS configuration..."
+                  if docker ps --filter "name=cach_nginx" --filter "status=running" --format "{{.Names}}" | grep -q "cach_nginx"; then
+                    echo "✅ nginx is running with HTTPS configuration"
+                    # Test configuration
+                    if docker exec cach_nginx nginx -t >/dev/null 2>&1; then
+                      echo "✅ nginx configuration is valid"
+                    else
+                      echo "⚠️  nginx configuration test failed - checking logs..."
+                      docker logs cach_nginx --tail 10
+                    fi
+                  else
+                    echo "❌ nginx failed to start with HTTPS configuration"
+                    echo "🔍 nginx logs:"
+                    docker logs cach_nginx --tail 20 2>/dev/null || echo "Could not retrieve logs"
+                    exit 1
                   fi
                   
                   echo "🎉 HTTPS is now enabled for all services!"
