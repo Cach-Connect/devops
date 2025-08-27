@@ -9,14 +9,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/conf.d/production-http.conf:/etc/nginx/conf.d/production-http.conf:ro
-      - ./nginx/conf.d/production-https.conf:/etc/nginx/conf.d/production-https.conf:ro
-      - ./nginx/conf.d/staging-http.conf:/etc/nginx/conf.d/staging-http.conf:ro
-      - ./nginx/conf.d/staging-https.conf:/etc/nginx/conf.d/staging-https.conf:ro
-      - ./nginx/conf.d/sandbox-http.conf:/etc/nginx/conf.d/sandbox-http.conf:ro
-      - ./nginx/conf.d/sandbox-https.conf:/etc/nginx/conf.d/sandbox-https.conf:ro
-      - ./nginx/conf.d/shared-http.conf:/etc/nginx/conf.d/shared-http.conf:ro
-      - ./nginx/conf.d/shared-https.conf:/etc/nginx/conf.d/shared-https.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./ssl/letsencrypt:/etc/letsencrypt:ro
       - ./ssl/www:/var/www/certbot:ro
     networks:
