@@ -150,10 +150,10 @@ jobs:
               "monitoring/grafana/provisioning/datasources/datasources.yml"
               "monitoring/grafana/dashboards/cach-overview.json"
               "nginx/nginx.conf"
-              "nginx/production.conf"
-              "nginx/staging.conf"
-              "nginx/sandbox.conf"
-              "nginx/shared.conf"
+              "nginx/production-http.conf"
+              "nginx/staging-http.conf"
+              "nginx/sandbox-http.conf"
+              "nginx/shared-http.conf"
               "docker-compose.shared.yml"
             )
             
