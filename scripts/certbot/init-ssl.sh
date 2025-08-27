@@ -33,7 +33,33 @@ storage.staging.cachconnect.co.ke \
 storage.sandbox.cachconnect.co.ke"
 
 EMAIL="admin@cachconnect.co.ke"
-STAGING=${1:-false}
+
+# Parse arguments
+DRY_RUN=false
+STAGING=false
+
+for arg in "$@"; do
+    case $arg in
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        --staging)
+            STAGING=true
+            shift
+            ;;
+        *)
+            # Unknown option
+            ;;
+    esac
+done
+
+if [ "$DRY_RUN" = "true" ]; then
+    echo "🧪 Performing DRY RUN - no actual certificates will be obtained"
+    DRY_RUN_FLAG="--dry-run"
+else
+    DRY_RUN_FLAG=""
+fi
 
 if [ "$STAGING" = "true" ]; then
     echo "🧪 Using Let's Encrypt staging environment"
@@ -45,15 +71,24 @@ fi
 
 echo "🚀 Starting SSL certificate initialization for Cach Connect..."
 
-# Create required directories
-mkdir -p /etc/letsencrypt
-mkdir -p /var/www/certbot
+# Create required directories (using local paths that will be mounted to containers)
+mkdir -p ./ssl/letsencrypt
+mkdir -p ./ssl/www
+
+echo "📁 SSL directories created:"
+echo "   - SSL certs: ./ssl/letsencrypt"
+echo "   - ACME challenge: ./ssl/www"
 
 for domain in $DOMAINS; do
     echo "📜 Obtaining certificate for $domain..."
     # Allow failure per-domain so we continue the loop
     set +e
-    certbot certonly \
+    
+    # Use Docker-based certbot with proper volume mounts
+    docker run --rm \
+        -v "$(pwd)/ssl/letsencrypt:/etc/letsencrypt" \
+        -v "$(pwd)/ssl/www:/var/www/certbot" \
+        certbot/certbot certonly \
         --webroot \
         --webroot-path=/var/www/certbot \
         --email $EMAIL \
@@ -61,13 +96,15 @@ for domain in $DOMAINS; do
         --no-eff-email \
         --force-renewal \
         $STAGING_FLAG \
+        $DRY_RUN_FLAG \
         -d $domain -v
+    
     status=$?
     set -e
     if [ $status -eq 0 ]; then
         echo "✅ Certificate obtained successfully for $domain"
     else
-        echo "❌ Failed to obtain certificate for $domain"
+        echo "❌ Failed to obtain certificate for $domain (continuing with others)"
     fi
 done
 
