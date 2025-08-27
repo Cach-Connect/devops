@@ -105,8 +105,13 @@ jobs:
             sleep 10
             
             # Check nginx status
-            if ! docker ps | grep -q "cach_nginx.*Up"; then
-              echo "❌ nginx is not running. Starting nginx..."
+            echo "🔍 Checking nginx container status..."
+            docker ps --filter "name=cach_nginx" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+            
+            # Check if nginx container exists and is running (more flexible check)
+            NGINX_STATUS=$(docker ps --filter "name=cach_nginx" --format "{{.Status}}" | head -1)
+            if [ -z "$NGINX_STATUS" ] || [[ "$NGINX_STATUS" == *"Exited"* ]] || [[ "$NGINX_STATUS" == *"Dead"* ]]; then
+              echo "❌ nginx is not running properly (Status: ${NGINX_STATUS:-'Not found'}). Starting nginx..."
               
               # Use same directory logic as above
               if [ -d "docker-compose" ]; then
@@ -123,16 +128,54 @@ jobs:
                 cd ..
               fi
               sleep 15
-              if ! docker ps | grep -q "cach_nginx.*Up"; then
-                echo "❌ Failed to start nginx"
+              
+              # Check final status
+              FINAL_NGINX_STATUS=$(docker ps --filter "name=cach_nginx" --format "{{.Status}}" | head -1)
+              if [ -z "$FINAL_NGINX_STATUS" ] || [[ "$FINAL_NGINX_STATUS" == *"Exited"* ]] || [[ "$FINAL_NGINX_STATUS" == *"Dead"* ]]; then
+                echo "❌ Failed to start nginx properly"
+                echo "🔍 Final nginx container status: ${FINAL_NGINX_STATUS:-'Not found'}"
+                echo "🔍 Container logs:"
+                docker logs cach_nginx --tail 20 2>/dev/null || echo "Could not retrieve logs"
                 exit 1
               fi
+            else
+              echo "✅ nginx is already running (Status: $NGINX_STATUS)"
             fi
-            echo "✅ nginx is running"
+            
+            echo "✅ nginx is ready for SSL operations"
             
             case "$ACTION" in
               "setup")
                 echo "🔒 Setting up SSL certificates..."
+                
+                # Ensure we're using HTTP-only configs during SSL setup (to avoid SSL cert issues)
+                echo "🔄 Temporarily switching to HTTP-only configuration for SSL setup..."
+                if [ -d "./nginx/conf.d" ]; then
+                  # Backup current config
+                  cp -r ./nginx/conf.d ./nginx/conf.d-backup-before-ssl
+                  
+                  # Remove any HTTPS configs temporarily
+                  find ./nginx/conf.d -name "*-https.conf" -delete 2>/dev/null || true
+                  
+                  # Restart nginx with HTTP-only configs
+                  if [ -d "docker-compose" ]; then
+                    cd docker-compose
+                    COMPOSE_FILE="docker-compose.shared.yml"
+                  else
+                    COMPOSE_FILE="docker-compose.shared.yml"
+                  fi
+                  
+                  echo "🔄 Restarting nginx with HTTP-only configuration..."
+                  docker-compose -f $COMPOSE_FILE restart nginx
+                  
+                  # Return to original directory if we changed it
+                  if [ -d "../docker-compose" ]; then
+                    cd ..
+                  fi
+                  
+                  sleep 5
+                  echo "✅ nginx is now running with HTTP-only configuration"
+                fi
                 
                 if [ "$DRY_RUN" = "true" ]; then
                   echo "🧪 Performing dry run SSL setup..."
@@ -252,7 +295,7 @@ jobs:
                     if [ -d "docker-compose" ]; then
                       cd docker-compose && docker-compose -f docker-compose.shared.yml exec -T nginx nginx -s reload && cd ..
                     else
-                      docker-compose -f docker-compose.shared.yml exec -T nginx nginx -s reload
+                    docker-compose -f docker-compose.shared.yml exec -T nginx nginx -s reload
                     fi
                   fi
                 else
@@ -289,7 +332,7 @@ jobs:
                     if [ -d "docker-compose" ]; then
                       cd docker-compose && docker-compose -f docker-compose.shared.yml exec -T nginx nginx -s reload && cd ..
                     else
-                      docker-compose -f docker-compose.shared.yml exec -T nginx nginx -s reload
+                    docker-compose -f docker-compose.shared.yml exec -T nginx nginx -s reload
                     fi
                   fi
                 else
