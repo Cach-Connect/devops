@@ -17,7 +17,6 @@ services:
       - ./nginx/conf.d/sandbox-https.conf:/etc/nginx/conf.d/sandbox-https.conf:ro
       - ./nginx/conf.d/shared-http.conf:/etc/nginx/conf.d/shared-http.conf:ro
       - ./nginx/conf.d/shared-https.conf:/etc/nginx/conf.d/shared-https.conf:ro
-      - ./nginx/nginx-https.conf:/etc/nginx/nginx.conf:ro
       - ./ssl/letsencrypt:/etc/letsencrypt:ro
       - ./ssl/www:/var/www/certbot:ro
     networks:
