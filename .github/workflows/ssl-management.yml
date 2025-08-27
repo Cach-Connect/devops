@@ -84,13 +84,17 @@ jobs:
             
             # Ensure nginx is running for ACME challenges
             echo "🔍 Ensuring nginx is running..."
+            cd docker-compose
             docker-compose -f docker-compose.shared.yml up -d nginx
+            cd ..
             sleep 10
             
             # Check nginx status
             if ! docker ps | grep -q "cach_nginx.*Up"; then
               echo "❌ nginx is not running. Starting nginx..."
+              cd docker-compose
               docker-compose -f docker-compose.shared.yml up -d nginx
+              cd ..
               sleep 15
               if ! docker ps | grep -q "cach_nginx.*Up"; then
                 echo "❌ Failed to start nginx"
@@ -117,43 +121,55 @@ jobs:
                   # Switch to HTTPS configuration based on current environment
                   echo "🔄 Switching to HTTPS nginx configuration..."
                   
-                  # Determine current environment from existing config
-                  if [ -f "./nginx/shared.conf" ] && grep -q "monitoring.cachconnect.co.ke" ./nginx/shared.conf 2>/dev/null && ! grep -q "api\." ./nginx/shared.conf 2>/dev/null; then
-                    echo "Switching to shared (monitoring only) HTTPS configuration..."
-                    cp ~/devops/nginx/nginx-https.conf ./nginx/nginx.conf
-                    cp ~/devops/nginx/conf.d/shared-https.conf ./nginx/shared-ssl.conf
-                    # Replace current config with HTTPS version
-                    rm -f ./nginx/shared.conf
-                    mv ./nginx/shared-ssl.conf ./nginx/shared.conf
-                  elif grep -q "cachconnect.co.ke" ./nginx/*.conf 2>/dev/null; then
-                    echo "Switching to production HTTPS configuration..."
-                    cp ~/devops/nginx/nginx-https.conf ./nginx/nginx.conf
-                    cp ~/devops/nginx/conf.d/production-https.conf ./nginx/production.conf
-                    # Remove old HTTP config and replace with HTTPS
-                    rm -f ./nginx/shared.conf ./nginx/production.conf
-                    mv ./nginx/production.conf ./nginx/shared.conf
-                  elif grep -q "staging.cachconnect.co.ke" ./nginx/*.conf 2>/dev/null; then
-                    echo "Switching to staging HTTPS configuration..."
-                    cp ~/devops/nginx/nginx-https.conf ./nginx/nginx.conf
-                    cp ~/devops/nginx/conf.d/staging-https.conf ./nginx/staging.conf
-                    # Replace current config with HTTPS version
-                    rm -f ./nginx/shared.conf
-                    mv ./nginx/staging.conf ./nginx/shared.conf
-                  elif grep -q "sandbox.cachconnect.co.ke" ./nginx/*.conf 2>/dev/null; then
-                    echo "Switching to sandbox HTTPS configuration..."
-                    cp ~/devops/nginx/nginx-https.conf ./nginx/nginx.conf
-                    cp ~/devops/nginx/conf.d/sandbox-https.conf ./nginx/sandbox.conf
-                    # Replace current config with HTTPS version
-                    rm -f ./nginx/shared.conf
-                    mv ./nginx/sandbox.conf ./nginx/shared.conf
+                  # Check which environment is currently deployed
+                  if docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q "production"; then
+                    echo "Detected production environment - enabling HTTPS for production"
+                    ENV_TYPE="production"
+                  elif docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q "staging"; then
+                    echo "Detected staging environment - enabling HTTPS for staging" 
+                    ENV_TYPE="staging"
+                  elif docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q "sandbox"; then
+                    echo "Detected sandbox environment - enabling HTTPS for sandbox"
+                    ENV_TYPE="sandbox" 
                   else
-                    echo "Could not determine environment for SSL setup"
-                    exit 1
+                    echo "No specific environment detected - defaulting to shared monitoring"
+                    ENV_TYPE="shared"
                   fi
                   
-                  # Reload nginx with HTTPS configuration
-                  echo "🔄 Reloading nginx with HTTPS configuration and certificates..."
-                  docker-compose -f docker-compose.shared.yml exec -T nginx nginx -s reload
+                  # Create temporary nginx config directory with HTTPS configs
+                  echo "📁 Setting up HTTPS nginx configuration for $ENV_TYPE environment..."
+                  mkdir -p ./nginx/conf.d-https
+                  
+                  # Copy HTTPS configurations based on environment
+                  cp ./nginx/conf.d/shared-https.conf ./nginx/conf.d-https/
+                  case "$ENV_TYPE" in
+                    "production")
+                      cp ./nginx/conf.d/production-https.conf ./nginx/conf.d-https/
+                      ;;
+                    "staging") 
+                      cp ./nginx/conf.d/staging-https.conf ./nginx/conf.d-https/
+                      ;;
+                    "sandbox")
+                      cp ./nginx/conf.d/sandbox-https.conf ./nginx/conf.d-https/
+                      ;;
+                  esac
+                  
+                  # Backup current HTTP config directory
+                  echo "💾 Backing up current HTTP configuration..."
+                  cp -r ./nginx/conf.d ./nginx/conf.d-http-backup
+                  
+                  # Replace with HTTPS configurations
+                  echo "🔄 Switching to HTTPS configurations..."
+                  rm -rf ./nginx/conf.d
+                  mv ./nginx/conf.d-https ./nginx/conf.d
+                  
+                  # Restart nginx container to load new configurations
+                  echo "🔄 Restarting nginx with HTTPS configuration and certificates..."
+                  cd docker-compose
+                  docker-compose -f docker-compose.shared.yml stop nginx
+                  sleep 5
+                  docker-compose -f docker-compose.shared.yml up -d nginx
+                  cd ..
                   
                   echo "🎉 HTTPS is now enabled for all services!"
                   echo "📊 HTTPS Access points:"
@@ -193,7 +209,7 @@ jobs:
                   if [ "$DRY_RUN" != "true" ]; then
                     # Reload nginx to use renewed certificates
                     echo "🔄 Reloading nginx with renewed certificates..."
-                    docker-compose -f docker-compose.shared.yml exec -T nginx nginx -s reload
+                    cd docker-compose && docker-compose -f docker-compose.shared.yml exec -T nginx nginx -s reload && cd ..
                   fi
                 else
                   echo "❌ SSL renewal failed"
@@ -225,7 +241,7 @@ jobs:
                   if [ "$DRY_RUN" != "true" ]; then
                     # Reload nginx to use renewed certificates
                     echo "🔄 Reloading nginx with renewed certificates..."
-                    docker-compose -f docker-compose.shared.yml exec -T nginx nginx -s reload
+                    cd docker-compose && docker-compose -f docker-compose.shared.yml exec -T nginx nginx -s reload && cd ..
                   fi
                 else
                   echo "❌ SSL force renewal failed"
@@ -274,36 +290,54 @@ jobs:
               "disable-https")
                 echo "🔄 Disabling HTTPS and switching back to HTTP-only configuration..."
                 
-                # Determine current environment and switch to appropriate HTTP config
-                if [ -f "./nginx/shared.conf" ] && grep -q "monitoring.cachconnect.co.ke" ./nginx/shared.conf 2>/dev/null && ! grep -q "api\." ./nginx/shared.conf 2>/dev/null; then
-                  echo "📋 Switching to shared HTTP-only nginx configuration..."
-                  cp ~/devops/nginx/nginx-http.conf ./nginx/nginx.conf
-                  cp ~/devops/nginx/conf.d/shared-http.conf ./nginx/shared-http-temp.conf
-                  rm -f ./nginx/shared.conf
-                  mv ./nginx/shared-http-temp.conf ./nginx/shared.conf
-                elif grep -q "staging.cachconnect.co.ke" ./nginx/*.conf 2>/dev/null; then
-                  echo "📋 Switching to staging HTTP-only nginx configuration..."
-                  cp ~/devops/nginx/nginx-http.conf ./nginx/nginx.conf
-                  cp ~/devops/nginx/conf.d/staging-http.conf ./nginx/staging-http-temp.conf
-                  rm -f ./nginx/shared.conf
-                  mv ./nginx/staging-http-temp.conf ./nginx/shared.conf
-                elif grep -q "sandbox.cachconnect.co.ke" ./nginx/*.conf 2>/dev/null; then
-                  echo "📋 Switching to sandbox HTTP-only nginx configuration..."
-                  cp ~/devops/nginx/nginx-http.conf ./nginx/nginx.conf
-                  cp ~/devops/nginx/conf.d/sandbox-http.conf ./nginx/sandbox-http-temp.conf
-                  rm -f ./nginx/shared.conf
-                  mv ./nginx/sandbox-http-temp.conf ./nginx/shared.conf
+                # Check if we have a backup of HTTP configs
+                if [ -d "./nginx/conf.d-http-backup" ]; then
+                  echo "📋 Restoring HTTP configuration from backup..."
+                  rm -rf ./nginx/conf.d
+                  mv ./nginx/conf.d-http-backup ./nginx/conf.d
                 else
-                  echo "📋 Switching to production HTTP-only nginx configuration..."
-                  cp ~/devops/nginx/nginx-http.conf ./nginx/nginx.conf
-                  cp ~/devops/nginx/conf.d/production-http.conf ./nginx/production-http-temp.conf
-                  rm -f ./nginx/shared.conf
-                  mv ./nginx/production-http-temp.conf ./nginx/shared.conf
+                  echo "📋 No backup found, recreating HTTP configuration from source..."
+                  
+                  # Check which environment is currently deployed
+                  if docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q "production"; then
+                    ENV_TYPE="production"
+                  elif docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q "staging"; then
+                    ENV_TYPE="staging"
+                  elif docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q "sandbox"; then
+                    ENV_TYPE="sandbox"
+                  else
+                    ENV_TYPE="shared"
+                  fi
+                  
+                  # Create HTTP-only config directory
+                  mkdir -p ./nginx/conf.d-http
+                  
+                  # Copy HTTP configurations based on environment
+                  cp ./nginx/conf.d/shared-http.conf ./nginx/conf.d-http/
+                  case "$ENV_TYPE" in
+                    "production")
+                      cp ./nginx/conf.d/production-http.conf ./nginx/conf.d-http/
+                      ;;
+                    "staging")
+                      cp ./nginx/conf.d/staging-http.conf ./nginx/conf.d-http/
+                      ;;
+                    "sandbox")
+                      cp ./nginx/conf.d/sandbox-http.conf ./nginx/conf.d-http/
+                      ;;
+                  esac
+                  
+                  # Replace with HTTP configurations
+                  rm -rf ./nginx/conf.d
+                  mv ./nginx/conf.d-http ./nginx/conf.d
                 fi
                 
-                # Reload nginx with HTTP-only configuration
-                echo "🔄 Reloading nginx with HTTP-only configuration..."
-                docker-compose -f docker-compose.shared.yml exec -T nginx nginx -s reload
+                # Restart nginx with HTTP-only configuration
+                echo "🔄 Restarting nginx with HTTP-only configuration..."
+                cd docker-compose
+                docker-compose -f docker-compose.shared.yml stop nginx
+                sleep 5
+                docker-compose -f docker-compose.shared.yml up -d nginx
+                cd ..
                 
                 echo "✅ HTTPS disabled - services now running on HTTP only"
                 echo "📊 HTTP Access points (environment-specific):"
