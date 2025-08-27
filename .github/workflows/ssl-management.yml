@@ -84,17 +84,44 @@ jobs:
             
             # Ensure nginx is running for ACME challenges
             echo "🔍 Ensuring nginx is running..."
-            cd docker-compose
-            docker-compose -f docker-compose.shared.yml up -d nginx
-            cd ..
+            
+            # Check if we're in a docker-compose subdirectory structure (local dev) or flat structure (server)
+            if [ -d "docker-compose" ]; then
+              echo "📁 Using docker-compose subdirectory structure"
+              cd docker-compose
+              COMPOSE_FILE="docker-compose.shared.yml"
+            else
+              echo "📁 Using flat directory structure"
+              COMPOSE_FILE="docker-compose.shared.yml"
+            fi
+            
+            docker-compose -f $COMPOSE_FILE up -d nginx
+            
+            # Return to original directory if we changed it
+            if [ -d "../docker-compose" ]; then
+              cd ..
+            fi
+            
             sleep 10
             
             # Check nginx status
             if ! docker ps | grep -q "cach_nginx.*Up"; then
               echo "❌ nginx is not running. Starting nginx..."
-              cd docker-compose
-              docker-compose -f docker-compose.shared.yml up -d nginx
-              cd ..
+              
+              # Use same directory logic as above
+              if [ -d "docker-compose" ]; then
+                cd docker-compose
+                COMPOSE_FILE="docker-compose.shared.yml"
+              else
+                COMPOSE_FILE="docker-compose.shared.yml"
+              fi
+              
+              docker-compose -f $COMPOSE_FILE up -d nginx
+              
+              # Return to original directory if we changed it
+              if [ -d "../docker-compose" ]; then
+                cd ..
+              fi
               sleep 15
               if ! docker ps | grep -q "cach_nginx.*Up"; then
                 echo "❌ Failed to start nginx"
@@ -165,11 +192,23 @@ jobs:
                   
                   # Restart nginx container to load new configurations
                   echo "🔄 Restarting nginx with HTTPS configuration and certificates..."
-                  cd docker-compose
-                  docker-compose -f docker-compose.shared.yml stop nginx
+                  
+                  # Use same directory detection logic
+                  if [ -d "docker-compose" ]; then
+                    cd docker-compose
+                    COMPOSE_FILE="docker-compose.shared.yml"
+                  else
+                    COMPOSE_FILE="docker-compose.shared.yml"
+                  fi
+                  
+                  docker-compose -f $COMPOSE_FILE stop nginx
                   sleep 5
-                  docker-compose -f docker-compose.shared.yml up -d nginx
-                  cd ..
+                  docker-compose -f $COMPOSE_FILE up -d nginx
+                  
+                  # Return to original directory if we changed it
+                  if [ -d "../docker-compose" ]; then
+                    cd ..
+                  fi
                   
                   echo "🎉 HTTPS is now enabled for all services!"
                   echo "📊 HTTPS Access points:"
@@ -209,7 +248,12 @@ jobs:
                   if [ "$DRY_RUN" != "true" ]; then
                     # Reload nginx to use renewed certificates
                     echo "🔄 Reloading nginx with renewed certificates..."
-                    cd docker-compose && docker-compose -f docker-compose.shared.yml exec -T nginx nginx -s reload && cd ..
+                    # Use directory detection for nginx reload
+                    if [ -d "docker-compose" ]; then
+                      cd docker-compose && docker-compose -f docker-compose.shared.yml exec -T nginx nginx -s reload && cd ..
+                    else
+                      docker-compose -f docker-compose.shared.yml exec -T nginx nginx -s reload
+                    fi
                   fi
                 else
                   echo "❌ SSL renewal failed"
@@ -241,7 +285,12 @@ jobs:
                   if [ "$DRY_RUN" != "true" ]; then
                     # Reload nginx to use renewed certificates
                     echo "🔄 Reloading nginx with renewed certificates..."
-                    cd docker-compose && docker-compose -f docker-compose.shared.yml exec -T nginx nginx -s reload && cd ..
+                    # Use directory detection for nginx reload
+                    if [ -d "docker-compose" ]; then
+                      cd docker-compose && docker-compose -f docker-compose.shared.yml exec -T nginx nginx -s reload && cd ..
+                    else
+                      docker-compose -f docker-compose.shared.yml exec -T nginx nginx -s reload
+                    fi
                   fi
                 else
                   echo "❌ SSL force renewal failed"
@@ -333,11 +382,23 @@ jobs:
                 
                 # Restart nginx with HTTP-only configuration
                 echo "🔄 Restarting nginx with HTTP-only configuration..."
-                cd docker-compose
-                docker-compose -f docker-compose.shared.yml stop nginx
+                
+                # Use same directory detection logic
+                if [ -d "docker-compose" ]; then
+                  cd docker-compose
+                  COMPOSE_FILE="docker-compose.shared.yml"
+                else
+                  COMPOSE_FILE="docker-compose.shared.yml"
+                fi
+                
+                docker-compose -f $COMPOSE_FILE stop nginx
                 sleep 5
-                docker-compose -f docker-compose.shared.yml up -d nginx
-                cd ..
+                docker-compose -f $COMPOSE_FILE up -d nginx
+                
+                # Return to original directory if we changed it
+                if [ -d "../docker-compose" ]; then
+                  cd ..
+                fi
                 
                 echo "✅ HTTPS disabled - services now running on HTTP only"
                 echo "📊 HTTP Access points (environment-specific):"
