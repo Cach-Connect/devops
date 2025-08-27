@@ -24,9 +24,9 @@ on:
         default: false
         type: boolean
 
-  schedule:
+  # schedule:
     # Auto-renew certificates every 12 hours
-    - cron: '0 */12 * * *'
+    # - cron: '0 */12 * * *'
 
 env:
   REGISTRY: docker.io
