@@ -80,7 +80,7 @@ services:
       - ALLOWED_FILE_TYPES=${ALLOWED_FILE_TYPES}
       - MAX_FILE_SIZE=${MAX_FILE_SIZE}
       - LOG_LEVEL=${LOG_LEVEL}
-      - API_URL=https://api.cachconnect.co.ke
+      - API_URL=http://api.cachconnect.co.ke
       - LENDER_APP_URL=${LENDER_APP_URL}
       - DISTRIBUTOR_APP_URL=${DISTRIBUTOR_APP_URL}
       - BUSINESS_APP_URL=${BUSINESS_APP_URL}
