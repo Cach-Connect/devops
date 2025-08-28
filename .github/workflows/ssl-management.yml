@@ -234,90 +234,50 @@ jobs:
                   DETECTED_ENVS=""
                   if docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q "production"; then
                     DETECTED_ENVS="$DETECTED_ENVS production"
-                    echo "Detected production environment"
+                    echo "✅ Detected production environment"
                   fi
                   if docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q "staging"; then
                     DETECTED_ENVS="$DETECTED_ENVS staging"
-                    echo "Detected staging environment"
+                    echo "✅ Detected staging environment"
                   fi
                   if docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q "sandbox"; then
                     DETECTED_ENVS="$DETECTED_ENVS sandbox"
-                    echo "Detected sandbox environment"
+                    echo "✅ Detected sandbox environment"
                   fi
 
-                  echo "Enabling HTTPS for environments:$DETECTED_ENVS"
+                  echo "🔒 Enabling HTTPS for environments:$DETECTED_ENVS"
 
-                  # Create temporary nginx config directory with HTTPS configs
-                  echo "📁 Setting up HTTPS nginx configuration for detected environments..."
+                  # Backup current HTTP config directory
+                  echo "💾 Backing up current HTTP configuration..."
+                  cp -r ./nginx/conf.d ./nginx/conf.d-http-backup
+                  
+                  # Create new HTTPS config directory
+                  echo "📁 Setting up HTTPS nginx configuration..."
                   mkdir -p ./nginx/conf.d-https
 
-                  # Always copy shared config
-                  cp ./nginx/conf.d/shared-https.conf ./nginx/conf.d-https/
+                  # Always copy shared HTTPS config
+                  echo "📋 Copying shared HTTPS configuration..."
+                  cp ~/devops/nginx/conf.d/shared-https.conf ./nginx/conf.d-https/
 
-                  # Copy configs for each detected environment
+                  # Copy HTTPS configs for each detected environment
                   for env in $DETECTED_ENVS; do
+                    echo "📋 Copying $env HTTPS configuration..."
                     case "$env" in
                       "production")
-                        cp ./nginx/conf.d/production-https.conf ./nginx/conf.d-https/
+                        cp ~/devops/nginx/conf.d/production-https.conf ./nginx/conf.d-https/
                         ;;
                       "staging") 
-                        cp ./nginx/conf.d/staging-https.conf ./nginx/conf.d-https/
+                        cp ~/devops/nginx/conf.d/staging-https.conf ./nginx/conf.d-https/
                         ;;
                       "sandbox")
-                        cp ./nginx/conf.d/sandbox-https.conf ./nginx/conf.d-https/
+                        cp ~/devops/nginx/conf.d/sandbox-https.conf ./nginx/conf.d-https/
                         ;;
                     esac
                   done
                   
-                  # Create temporary nginx config directory with HTTPS configs
-                  echo "📁 Setting up HTTPS nginx configuration for $ENV_TYPE environment..."
-                  
-                  # Backup current HTTP config directory first (before any changes)
-                  echo "💾 Backing up current HTTP configuration..."
-                  cp -r ./nginx/conf.d ./nginx/conf.d-http-backup
-                  
-                  # Create a new temp directory for HTTPS configs
-                  mkdir -p ./nginx/conf.d-https-temp
-                  
-                  # Copy HTTPS configurations based on environment (with error checking)
-                  echo "📋 Copying HTTPS configurations..."
-                  if [ -f "./nginx/conf.d/shared-https.conf" ]; then
-                    cp ./nginx/conf.d/shared-https.conf ./nginx/conf.d-https-temp/
-                  else
-                    echo "⚠️  shared-https.conf not found, using HTTP version as fallback"
-                    # Use HTTP version as fallback if HTTPS doesn't exist
-                    if [ -f "./nginx/conf.d/shared-http.conf" ]; then
-                      cp ./nginx/conf.d/shared-http.conf ./nginx/conf.d-https-temp/
-                    fi
-                  fi
-                  
-                  case "$ENV_TYPE" in
-                    "production")
-                      if [ -f "./nginx/conf.d/production-https.conf" ]; then
-                        cp ./nginx/conf.d/production-https.conf ./nginx/conf.d-https-temp/
-                      else
-                        echo "⚠️  production-https.conf not found, keeping HTTP config"
-                        # Copy HTTP config as fallback
-                        cp ./nginx/conf.d/production-http.conf ./nginx/conf.d-https-temp/
-                      fi
-                      ;;
-                    "staging") 
-                      if [ -f "./nginx/conf.d/staging-https.conf" ]; then
-                        cp ./nginx/conf.d/staging-https.conf ./nginx/conf.d-https-temp/
-                      else
-                        echo "⚠️  staging-https.conf not found, keeping HTTP config"
-                        cp ./nginx/conf.d/staging-http.conf ./nginx/conf.d-https-temp/
-                      fi
-                      ;;
-                    "sandbox")
-                      if [ -f "./nginx/conf.d/sandbox-https.conf" ]; then
-                        cp ./nginx/conf.d/sandbox-https.conf ./nginx/conf.d-https-temp/
-                      else
-                        echo "⚠️  sandbox-https.conf not found, keeping HTTP config"
-                        cp ./nginx/conf.d/sandbox-http.conf ./nginx/conf.d-https-temp/
-                      fi
-                      ;;
-                  esac
+                  # Update main nginx.conf to use HTTPS version
+                  echo "🔧 Updating main nginx configuration for HTTPS..."
+                  cp ~/devops/nginx/nginx-https.conf ./nginx/nginx.conf
                   
                   # Use Docker to stop nginx and switch configs (avoids permission issues)
                   echo "🔄 Stopping nginx to switch configurations..."
@@ -338,7 +298,7 @@ jobs:
                   # Now switch to https configs
                   echo "🔄 Switching to HTTPS configurations..."
                   rm -rf ./nginx/conf.d
-                  mv ./nginx/conf.d-https-temp ./nginx/conf.d
+                  mv ./nginx/conf.d-https ./nginx/conf.d
                   
                   # Start nginx with new HTTPS configuration
                   echo "🔄 Starting nginx with HTTPS configuration and certificates..."
@@ -496,6 +456,10 @@ jobs:
               "disable-https")
                 echo "🔄 Disabling HTTPS and switching back to HTTP-only configuration..."
                 
+                # Update main nginx.conf to use HTTP version
+                echo "🔧 Updating main nginx configuration for HTTP..."
+                cp ~/devops/nginx/nginx-http.conf ./nginx/nginx.conf
+                
                 # Check if we have a backup of HTTP configs
                 if [ -d "./nginx/conf.d-http-backup" ]; then
                   echo "📋 Restoring HTTP configuration from backup..."
@@ -504,37 +468,39 @@ jobs:
                 else
                   echo "📋 No backup found, recreating HTTP configuration from source..."
                   
-                  # Check which environment is currently deployed
+                  # Detect running environments
+                  DETECTED_ENVS=""
                   if docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q "production"; then
-                    ENV_TYPE="production"
-                  elif docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q "staging"; then
-                    ENV_TYPE="staging"
-                  elif docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q "sandbox"; then
-                    ENV_TYPE="sandbox"
-                  else
-                    ENV_TYPE="shared"
+                    DETECTED_ENVS="$DETECTED_ENVS production"
+                  fi
+                  if docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q "staging"; then
+                    DETECTED_ENVS="$DETECTED_ENVS staging"
+                  fi
+                  if docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q "sandbox"; then
+                    DETECTED_ENVS="$DETECTED_ENVS sandbox"
                   fi
                   
                   # Create HTTP-only config directory
-                  mkdir -p ./nginx/conf.d-http
-                  
-                  # Copy HTTP configurations based on environment
-                  cp ./nginx/conf.d/shared-http.conf ./nginx/conf.d-http/
-                  case "$ENV_TYPE" in
-                    "production")
-                      cp ./nginx/conf.d/production-http.conf ./nginx/conf.d-http/
-                      ;;
-                    "staging")
-                      cp ./nginx/conf.d/staging-http.conf ./nginx/conf.d-http/
-                      ;;
-                    "sandbox")
-                      cp ./nginx/conf.d/sandbox-http.conf ./nginx/conf.d-http/
-                      ;;
-                  esac
-                  
-                  # Replace with HTTP configurations
                   rm -rf ./nginx/conf.d
-                  mv ./nginx/conf.d-http ./nginx/conf.d
+                  mkdir -p ./nginx/conf.d
+                  
+                  # Copy shared HTTP configuration
+                  cp ~/devops/nginx/conf.d/shared-http.conf ./nginx/conf.d/
+                  
+                  # Copy HTTP configurations for detected environments
+                  for env in $DETECTED_ENVS; do
+                    case "$env" in
+                      "production")
+                        cp ~/devops/nginx/conf.d/production-http.conf ./nginx/conf.d/
+                        ;;
+                      "staging")
+                        cp ~/devops/nginx/conf.d/staging-http.conf ./nginx/conf.d/
+                        ;;
+                      "sandbox")
+                        cp ~/devops/nginx/conf.d/sandbox-http.conf ./nginx/conf.d/
+                        ;;
+                    esac
+                  done
                 fi
                 
                 # Restart nginx with HTTP-only configuration
