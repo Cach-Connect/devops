@@ -274,7 +274,7 @@ jobs:
                   
                   # Backup current HTTP config directory first (before any changes)
                   echo "💾 Backing up current HTTP configuration..."
-                  sudo cp -r ./nginx/conf.d ./nginx/conf.d-http-backup
+                  cp -r ./nginx/conf.d ./nginx/conf.d-http-backup
                   
                   # Create a new temp directory for HTTPS configs
                   mkdir -p ./nginx/conf.d-https-temp
@@ -335,10 +335,10 @@ jobs:
                     cd ..
                   fi
                   
-                  # Now switch configs using sudo to handle permissions
+                  # Now switch to https configs
                   echo "🔄 Switching to HTTPS configurations..."
-                  sudo rm -rf ./nginx/conf.d
-                  sudo mv ./nginx/conf.d-https-temp ./nginx/conf.d
+                  rm -rf ./nginx/conf.d
+                  mv ./nginx/conf.d-https-temp ./nginx/conf.d
                   
                   # Start nginx with new HTTPS configuration
                   echo "🔄 Starting nginx with HTTPS configuration and certificates..."
