@@ -102,6 +102,7 @@ jobs:
             # Copy latest nginx configuration structure
             echo "📋 Updating nginx configuration..."
             rm -rf nginx && mkdir -p nginx/conf.d
+            cp ~/devops/nginx/nginx.conf ./nginx/
             cp -r ~/devops/nginx/conf.d/* ./nginx/conf.d/
 
             # Copy docker-compose file
