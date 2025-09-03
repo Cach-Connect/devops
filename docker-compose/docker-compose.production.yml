@@ -80,7 +80,7 @@ services:
       - ALLOWED_FILE_TYPES=${ALLOWED_FILE_TYPES}
       - MAX_FILE_SIZE=${MAX_FILE_SIZE}
       - LOG_LEVEL=${LOG_LEVEL}
-      - API_URL=http://api.cachconnect.co.ke
+      - API_URL=https://api.cachconnect.co.ke
       - LENDER_APP_URL=${LENDER_APP_URL}
       - DISTRIBUTOR_APP_URL=${DISTRIBUTOR_APP_URL}
       - BUSINESS_APP_URL=${BUSINESS_APP_URL}
@@ -108,7 +108,7 @@ services:
     container_name: cach_admin_production
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://api.cachconnect.co.ke
+      - NEXT_PUBLIC_API_URL=https://api.cachconnect.co.ke
     ports:
       - "4050:3000"
     networks:
@@ -131,7 +131,7 @@ services:
     container_name: cach_website_production
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://api.cachconnect.co.ke
+      - NEXT_PUBLIC_API_URL=https://api.cachconnect.co.ke
     ports:
       - "4060:3000"
     networks:
@@ -154,7 +154,7 @@ services:
     container_name: cach_agents_production
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://api.cachconnect.co.ke
+      - NEXT_PUBLIC_API_URL=https://api.cachconnect.co.ke
     ports:
       - "4010:3000"
     networks:
@@ -177,7 +177,7 @@ services:
     container_name: cach_distributors_production
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://api.cachconnect.co.ke
+      - NEXT_PUBLIC_API_URL=https://api.cachconnect.co.ke
     ports:
       - "4020:3000"
     networks:
@@ -200,7 +200,7 @@ services:
     container_name: cach_business_production
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://api.cachconnect.co.ke
+      - NEXT_PUBLIC_API_URL=https://api.cachconnect.co.ke
     ports:
       - "4030:3000"
     networks:
@@ -223,7 +223,7 @@ services:
     container_name: cach_lenders_production
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://api.cachconnect.co.ke
+      - NEXT_PUBLIC_API_URL=https://api.cachconnect.co.ke
     ports:
       - "4040:3000"
     networks:
