@@ -79,6 +79,10 @@ echo "📁 SSL directories created:"
 echo "   - SSL certs: ./ssl/letsencrypt"
 echo "   - ACME challenge: ./ssl/www"
 
+# Clean up any existing accounts to avoid conflicts (optional)
+echo "🧹 Cleaning up existing accounts to avoid conflicts..."
+rm -rf ./ssl/letsencrypt/accounts/* 2>/dev/null || true
+
 for domain in $DOMAINS; do
     echo "📜 Obtaining certificate for $domain..."
     # Allow failure per-domain so we continue the loop
@@ -94,7 +98,8 @@ for domain in $DOMAINS; do
         --email $EMAIL \
         --agree-tos \
         --no-eff-email \
-        --force-renewal \
+        --non-interactive \
+        --keep-until-expiring \
         $STAGING_FLAG \
         $DRY_RUN_FLAG \
         -d $domain -v
